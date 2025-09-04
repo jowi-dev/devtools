@@ -1,13 +1,12 @@
-local lsp = require'lspconfig'
 
 -- Going to try a new LS for elixir
 
 
-local capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol.make_client_capabilities())
+--local capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol.make_client_capabilities())
 
-lsp.elixirls = require'languages/elixir'
-lsp.ccls.setup{
-  capabilities=capabilities
+vim.lsp.elixirls = require'languages/elixir'
+vim.lsp.ccls.setup{
+  --capabilities=capabilities
 }
 local lsp_flags = {
   debounce_text_changes = 150
@@ -36,29 +35,29 @@ end
 --	vim.opt.signcolumn = "yes"
 --end
 
-lsp.graphql.setup{}
-lsp.ts_ls = require'languages/typescript'
-lsp.zls.setup{}
-lsp.rust_analyzer.setup{
+vim.lsp.graphql.setup{}
+vim.lsp.ts_ls = require'languages/typescript'
+vim.lsp.zls.setup{}
+vim.lsp.rust_analyzer.setup{
     on_attach = on_attach,
     flags = lsp_flags,
-    capabilities=capabilities,
+    --capabilities=capabilities,
     -- Server-specific settings...
     settings = {
       ["rust-analyzer"] = {}
     }
 }
 
-lsp.html.setup{
-  capabilities = capabilities
+vim.lsp.html.setup{
+  --capabilities = capabilities
 }
 
-lsp.cssls.setup{
-  capabilities = capabilities
+vim.lsp.cssls.setup{
+  --capabilities = capabilities
 }
 
-lsp.lua_ls.setup{
-  capabilities = capabilities,
+vim.lsp.lua_ls.setup{
+  --capabilities = capabilities,
   on_attach = on_attach,
   settings = {
     Lua = {
@@ -81,11 +80,11 @@ lsp.lua_ls.setup{
   }
 }
 
-lsp.swift_mesonls.setup{
-  capabilities = capabilities
+vim.lsp.swift_mesonls.setup{
+  --capabilities = capabilities
 }
 
 
-lsp.ols.setup{
-  capabilities = capabilities
+vim.lsp.ols.setup{
+  --capabilities = capabilities
 }

@@ -1,4 +1,4 @@
-local lsp = require'lspconfig'
+local lsp = vim.lsp
 
 lsp.ts_ls.setup({
     -- Needed for inlayHints. Merge this table with your settings or copy

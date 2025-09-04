@@ -7,12 +7,12 @@ cmd('set foldlevel=99')
 
 -- Neovim Theme
 --cmd('colorscheme github')
-cmd('colorscheme angr')
+--cmd('colorscheme angr')
 --cmd('colorscheme horizon')
 --require('palenight').set()
 
 --LuaLine 
-require('lualine').setup({theme= 'horizon'})
+--require('lualine').setup({theme= 'horizon'})
 --require('lualine').setup({theme= 'onelight'})
 
 -- TmuxLine Theme
