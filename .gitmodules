@@ -3,4 +3,4 @@
 	url = git@github.com:jowi-dev/logs.git
 [submodule "nvim/pack/plugins/start/nvim-lspconfig"]
 	path = nvim/pack/plugins/start/nvim-lspconfig
-	url = https://github.com/neovim/nvim-lspconfig.git
+	url = git@github.com:neovim/nvim-lspconfig.git
