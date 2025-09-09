@@ -9,6 +9,8 @@ brew "cocoapods"
 brew "mise"  
 brew "fish"
 cask "claude-code"
+brew "starship"
+brew "firebase-cli"
 
 
 # Applications
