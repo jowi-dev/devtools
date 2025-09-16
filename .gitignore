@@ -5,3 +5,8 @@ demos/raylib-c/.cache/*
 result
 tags
 *.backup
+
+j
+j.o
+j.cmx
+j.cmi

@@ -16,12 +16,15 @@ let repo_root = Filename.dirname (Sys.argv.(0))
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
   print_endline "";
-  print_endline "Usage: j <import|export|install> <package>";
+  print_endline "Usage: j [--force] <import|export|install> <package>";
   print_endline "";
   print_endline "Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
   print_endline "  export <package>  Copy config from repo to system location";
   print_endline "  install          Install j command to /usr/local/bin";
+  print_endline "";
+  print_endline "Options:";
+  print_endline "  --force          Skip timestamp checks and prompts";
   print_endline "";
   print_endline "Available packages:";
   List.iter (fun (name, repo_path, sys_path) ->
@@ -32,6 +35,24 @@ let file_exists path =
   try
     let _ = Unix.stat path in true
   with Unix.Unix_error _ -> false
+
+let get_modification_time path =
+  try
+    let stat = Unix.stat path in
+    Some stat.Unix.st_mtime
+  with Unix.Unix_error _ -> None
+
+let is_newer src_path dest_path =
+  match (get_modification_time src_path, get_modification_time dest_path) with
+  | (Some src_time, Some dest_time) -> src_time > dest_time
+  | (Some _, None) -> true  (* Source exists, dest doesn't *)
+  | (None, _) -> false      (* Source doesn't exist *)
+
+let format_time timestamp =
+  let tm = Unix.localtime timestamp in
+  sprintf "%04d-%02d-%02d %02d:%02d:%02d"
+    (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
+    tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 
 let copy_recursive src dest =
   let cmd = sprintf "cp -r \"%s\" \"%s\"" src dest in
@@ -105,7 +126,13 @@ let install_self () =
   printf "✓ Successfully installed j to %s\n" install_location;
   print_endline "You can now use 'j' from anywhere!"
 
-let sync_config action package_name =
+let read_yes_no () =
+  print_string "Proceed? (y/n): ";
+  flush stdout;
+  let response = read_line () in
+  String.lowercase_ascii (String.trim response) = "y"
+
+let sync_config force_flag action package_name =
   match find_package package_name with
   | None ->
     printf "Error: Unknown package '%s'\n" package_name;
@@ -136,6 +163,29 @@ let sync_config action package_name =
         exit 1
       );
       
+      (* Check timestamps unless --force is used *)
+      if not force_flag && file_exists repo_full_path then (
+        let sys_newer = is_newer sys_path repo_full_path in
+        let sys_time = match get_modification_time sys_path with
+          | Some t -> format_time t
+          | None -> "unknown" in
+        let repo_time = match get_modification_time repo_full_path with
+          | Some t -> format_time t
+          | None -> "unknown" in
+        
+        printf "System config: %s\n" sys_time;
+        printf "Repo config:   %s\n" repo_time;
+        
+        if not sys_newer then (
+          printf "⚠️  System config is not newer than repo config.\n";
+        );
+        
+        if not (read_yes_no ()) then (
+          print_endline "Import cancelled.";
+          exit 0
+        )
+      );
+      
       backup_if_exists repo_full_path;
       copy_recursive sys_path repo_full_path;
       printf "✓ Imported %s successfully\n" package_name
@@ -145,14 +195,27 @@ let sync_config action package_name =
       show_help ();
       exit 1
 
+let parse_args () =
+  let force = ref false in
+  let args = ref [] in
+  let argc = Array.length Sys.argv in
+  
+  for i = 1 to argc - 1 do
+    let arg = Sys.argv.(i) in
+    if arg = "--force" then
+      force := true
+    else
+      args := arg :: !args
+  done;
+  
+  (!force, List.rev !args)
+
 let () =
-  match Array.length Sys.argv with
-  | 1 -> show_help ()
-  | 2 when Sys.argv.(1) = "install" -> install_self ()
-  | 3 -> 
-    let action = Sys.argv.(1) in
-    let package = Sys.argv.(2) in
-    sync_config action package
+  let (force_flag, args) = parse_args () in
+  match args with
+  | [] -> show_help ()
+  | ["install"] -> install_self ()
+  | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
     show_help ();
