@@ -7,6 +7,7 @@ let packages = [
   ("starship", "starship.toml", Filename.concat (Sys.getenv "HOME") ".config/starship.toml");
   ("fish", "fish", Filename.concat (Sys.getenv "HOME") ".config/fish");
   ("tmux", "tmux.conf", Filename.concat (Sys.getenv "HOME") ".config/tmux/tmux.conf");
+  ("git", "git-config", Filename.concat (Sys.getenv "HOME") ".config/git/config");
 ]
 
 let install_location = "/usr/local/bin/j"
@@ -16,11 +17,12 @@ let repo_root = Filename.dirname (Sys.argv.(0))
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
   print_endline "";
-  print_endline "Usage: j [--force] <import|export|install> <package>";
+  print_endline "Usage: j [--force] <import|export|install> <package|--all>";
   print_endline "";
   print_endline "Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
   print_endline "  export <package>  Copy config from repo to system location";
+  print_endline "  export --all     Export all available packages to system";
   print_endline "  install          Install j command to /usr/local/bin";
   print_endline "";
   print_endline "Options:";
@@ -132,6 +134,43 @@ let read_yes_no () =
   let response = read_line () in
   String.lowercase_ascii (String.trim response) = "y"
 
+let export_all_packages () =
+  print_endline "Exporting all packages to system locations...";
+  print_endline "";
+  
+  let failed_exports = ref [] in
+  
+  List.iter (fun (name, repo_path, sys_path) ->
+    let repo_full_path = Filename.concat repo_root repo_path in
+    
+    printf "Exporting %s: %s -> %s\n" name repo_full_path sys_path;
+    
+    if not (file_exists repo_full_path) then (
+      printf "  ⚠️  Skipping %s (source does not exist)\n" name;
+      failed_exports := name :: !failed_exports
+    ) else (
+      try
+        ensure_parent_dir sys_path;
+        backup_if_exists sys_path;
+        copy_recursive repo_full_path sys_path;
+        printf "  ✓ Exported %s successfully\n" name
+      with
+      | Failure msg ->
+        printf "  ❌ Failed to export %s: %s\n" name msg;
+        failed_exports := name :: !failed_exports
+    );
+    print_endline ""
+  ) packages;
+  
+  let failed_count = List.length !failed_exports in
+  let total_count = List.length packages in
+  let success_count = total_count - failed_count in
+  
+  printf "Export complete: %d/%d packages successful\n" success_count total_count;
+  if failed_count > 0 then (
+    printf "Failed packages: %s\n" (String.concat ", " (List.rev !failed_exports))
+  )
+
 let sync_config force_flag action package_name =
   match find_package package_name with
   | None ->
@@ -215,6 +254,7 @@ let () =
   match args with
   | [] -> show_help ()
   | ["install"] -> install_self ()
+  | ["export"; "--all"] -> export_all_packages ()
   | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
