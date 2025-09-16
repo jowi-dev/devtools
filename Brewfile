@@ -11,6 +11,8 @@ brew "fish"
 cask "claude-code"
 brew "starship"
 brew "firebase-cli"
+brew "docker"
+brew "colima"
 
 
 # Applications

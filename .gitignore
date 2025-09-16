@@ -4,3 +4,4 @@ demos/raylib-c/build/*
 demos/raylib-c/.cache/*
 result
 tags
+*.backup
