@@ -13,6 +13,7 @@ brew "starship"
 brew "firebase-cli"
 brew "docker"
 brew "colima"
+brew "universal-ctags"
 
 
 # Applications

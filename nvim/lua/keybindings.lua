@@ -46,8 +46,13 @@ map('n', '<leader>vc', ':e ~/.config/nvim/init.lua', {noremap=true})
 map('n', '<leader>vr', ':source ~/.config/nvim/init.lua', {noremap=true})
 
 
--- Testing Keybinds -- PREFIX t
+-- Testing Keybinds -- PREFIX t  
 map('n', '<leader>t',   ':lua vim.lsp.codelens.run()<CR>',{noremap=true})
+
+-- Ctags Keybinds
+map('n', '<C-]>', '<C-]>', {noremap=true})  -- Jump to tag under cursor
+map('n', '<C-t>', '<C-t>', {noremap=true})  -- Jump back from tag
+map('n', '<leader>rt', ':!ctags -R .<CR>', {noremap=true})  -- Regenerate tags
 
 -- Formatting Keybinds -- PREFIX f
 map('n', '<leader>f',   ':lua Format()<CR>',{noremap=true})

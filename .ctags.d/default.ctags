@@ -1,0 +1,26 @@
+# Universal Ctags configuration
+
+# Exclude common directories
+--exclude=.git
+--exclude=node_modules
+--exclude=_build
+--exclude=deps
+--exclude=.elixir_ls
+--exclude=cover
+--exclude=doc
+--exclude=docs
+--exclude=.vscode
+--exclude=.idea
+--exclude=tmp
+--exclude=temp
+--exclude=vendor
+--exclude=target
+
+# Use built-in language definitions - Universal Ctags has good defaults
+
+# Sort tags by name
+--sort=yes
+
+# Create additional tag information
+--fields=+iaS
+--extras=+q
