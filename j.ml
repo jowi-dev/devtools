@@ -24,8 +24,10 @@ let show_help () =
   print_endline "";
   print_endline "Usage: j [--force] <import|export|install> <package|--all>";
   print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
+  print_endline "       j project <search> [pattern]";
+  print_endline "       j ps [pattern]";
   print_endline "";
-  print_endline "Commands:";
+  print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
   print_endline "  export <package>  Copy config from repo to system location";
   print_endline "  export --all     Export all available packages to system";
@@ -37,6 +39,10 @@ let show_help () =
   print_endline "  nvim list                  List installed plugins";
   print_endline "  nvim update <name>         Update plugin to latest version";
   print_endline "  nvim remove <name>         Remove plugin submodule";
+  print_endline "";
+  print_endline "Project Commands:";
+  print_endline "  project search [pattern]   Search files with ripgrep+fzf, open in nvim";
+  print_endline "  ps [pattern]               Shorthand for project search";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -257,6 +263,43 @@ let nvim_update_plugin name =
   
   printf "✓ Successfully updated plugin '%s' to latest version\n" name
 
+let project_search pattern_opt =
+  let pattern = match pattern_opt with
+    | Some p -> p
+    | None -> "" in
+  
+  printf "Searching current directory for: %s\n" (if pattern = "" then "(all files)" else pattern);
+  flush stdout;
+  
+  (* Build the search command *)
+  let rg_cmd = if pattern = "" then 
+    "rg --line-number --column --no-heading --color=always ."
+  else
+    sprintf "rg --line-number --column --no-heading --color=always \"%s\"" pattern in
+  
+  (* Build the fzf command with nvim integration *)
+  let fzf_cmd = sprintf "%s | fzf --ansi --delimiter=: \
+    --preview 'bat --color=always --highlight-line {2} {1}' \
+    --preview-window 'right:60%%:+{2}/2' \
+    --bind 'ctrl-o:execute(nvim {1} +{2})' \
+    --bind 'enter:execute(nvim {1} +{2})'" rg_cmd in
+  
+  let exit_code = Sys.command fzf_cmd in
+  if exit_code <> 0 && exit_code <> 130 then (* 130 is fzf cancelled with Ctrl-C *)
+    printf "Search failed or cancelled\n"
+
+let handle_project_command args =
+  match args with
+  | [] -> project_search None
+  | ["search"] -> project_search None  
+  | ["search"; pattern] -> project_search (Some pattern)
+  | [pattern] -> project_search (Some pattern) (* For `j ps pattern` shorthand *)
+  | _ ->
+    print_endline "Error: Invalid project command";
+    print_endline "Usage: j project search [pattern] or j ps [pattern]";
+    show_help ();
+    exit 1
+
 let handle_nvim_command args =
   match args with
   | ["install"; url] -> nvim_install_plugin url None
@@ -392,6 +435,8 @@ let () =
   | ["install"] -> install_self ()
   | ["export"; "--all"] -> export_all_packages ()
   | "nvim" :: nvim_args -> handle_nvim_command nvim_args
+  | "project" :: project_args -> handle_project_command project_args
+  | "ps" :: ps_args -> handle_project_command ps_args
   | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
