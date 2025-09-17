@@ -18,8 +18,8 @@
 
 # Use built-in language definitions - Universal Ctags has good defaults
 
-# Sort tags by name
---sort=yes
+# Sort tags by name (required for Vim/Neovim)
+--sort=foldcase
 
 # Create additional tag information
 --fields=+iaS
