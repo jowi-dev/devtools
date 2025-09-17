@@ -5,23 +5,8 @@ cmd('syntax on')
 cmd('set clipboard+=unnamedplus')
 cmd('set foldlevel=99')
 
--- Neovim Theme
---cmd('colorscheme github')
---cmd('colorscheme angr')
---cmd('colorscheme horizon')
---require('palenight').set()
-
---LuaLine 
---require('lualine').setup({theme= 'horizon'})
---require('lualine').setup({theme= 'onelight'})
-
 -- TmuxLine Theme
 vim.g.tmuxline_preset = 'horizon'
---vim.g.tmuxline_preset = 'papercolor_light'
-
---vim.g.vim_markdown_folding_disabled=1
-
-
 
 vim.opt.termguicolors = true
 
@@ -48,4 +33,3 @@ vim.opt.ttyfast=true
 vim.opt.showmatch=true
 vim.opt.incsearch=true
 vim.opt.hlsearch=true
---vim.opt.nofoldenabled=true

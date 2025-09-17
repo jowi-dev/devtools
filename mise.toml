@@ -1,3 +1,4 @@
 [tools]
 elixir = "latest"
+expert = "latest"
 ocaml = "latest"

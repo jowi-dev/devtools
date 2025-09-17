@@ -11,7 +11,6 @@ require('actions.send_to_note')
 -- Leader Key
 vim.g.mapleader=","
 
---local map = vim.api.nvim_set_keymap
 local map = vim.keymap.set
 
 -- Misc Copying Keybinds
@@ -26,14 +25,7 @@ map('n',  '<leader>gd', ':lua GitDiffs({})<CR>',{noremap=true})
 -- can't be C-d because that's page down natively
 map('n',  '<leader>d',      ':Telescope diagnostics<CR>', {noremap=true})
 
---map('n',  '<leader>gr', ':GitGutterRevertHunk<CR>',{noremap=true})
---map('n',  '<leader>gd', ':Gvdiffsplit!<CR>',{noremap=true})
---map('n',  '<leader>gq', ':diffget //2<CR>',{noremap=true})
---map('n',  '<leader>gp', ':diffget //3<CR>',{noremap=true})
---map('n',  '<leader>gm', ':Merginal<CR>',{noremap=true})
---map('n',  '<leader>gg', ':Git<CR>',{noremap=true})
-
--- Search and  FileNavigation Related keybinds
+-- Search and FileNavigation Related keybinds
 map('n',  '<C-p>',      ':Telescope find_files<CR>',{noremap=true})
 map('n',  '<C-f>',      ':Telescope live_grep<CR>',{noremap=true})
 map('n',  '<leader>c',  ':b#<bar>bd#<CR>',{noremap=true})
@@ -98,7 +90,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Buffer local mappings.
     -- See `:help vim.lsp.*` for documentation on any of the below functions
     local opts = { buffer = ev.buf }
-    --local opts = { noremap=true }
     map('n', 'gD', vim.lsp.buf.declaration, opts)
     map('n', 'gd', vim.lsp.buf.definition, opts)
     map('n', 'K', vim.lsp.buf.hover, opts)
@@ -106,9 +97,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     map('n', '<C-k>', vim.lsp.buf.signature_help, opts)
     map('n', '<space>wa', vim.lsp.buf.add_workspace_folder, opts)
     map('n', '<space>wr', vim.lsp.buf.remove_workspace_folder, opts)
---    map('n', '<space>wl', function()
---      print(vim.inspect(vim.lsp.buf.list_workspace_folders()))
---    end, opts)
     map('n', '<space>D', vim.lsp.buf.type_definition, opts)
     map('n', '<space>rn', vim.lsp.buf.rename, opts)
     map('n', '<space>ca', vim.lsp.buf.code_action, opts)
