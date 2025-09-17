@@ -34,11 +34,11 @@ map('n',  '<leader>p',  ':bnext<CR>',{noremap=true})
 map('n',  '<leader>l',  ':NERDTreeToggle<CR>',{noremap=true})
 map('n', '<leader><space>', ':nohlsearch<CR>', {noremap=true})
 
--- Snippet Keybinds -- PREFIX s
-map('i', '<leader>sx',   ':UltiSnipsExpandTrigger',{noremap=true})
-map('n', '<leader>sd',   ':UltiSnipsEdit',{noremap=true})
-map('n', '<leader>sf',   ':UltiSnipsJumpForwardTrigger',{noremap=true})
-map('n', '<leader>sb',   ':UltiSnipsJumpBackwardTrigger',{noremap=true})
+-- LuaSnip Keybinds -- PREFIX s
+map({'i', 's'}, '<leader>sx', function() require('luasnip').expand() end, {noremap=true})
+map({'i', 's'}, '<leader>sf', function() require('luasnip').jump(1) end, {noremap=true})
+map({'i', 's'}, '<leader>sb', function() require('luasnip').jump(-1) end, {noremap=true})
+map('n', '<leader>sd', function() require('luasnip.loaders').edit_snippet_files() end, {noremap=true})
 
 
 -- Nvim Config Keybinds -- PREFIX v
@@ -58,10 +58,6 @@ map('n', '<leader>r', ':!ctags -R .<CR>', {noremap=true})  -- Regenerate tags
 map('n', '<leader>f',   ':lua Format()<CR>',{noremap=true})
 map('n', '<leader>to',   ':lua ElixirOpenTestFile()<CR>',{noremap=true})
 
--- If you want :UltiSnipsEdit to split your window.
-vim.g.UltiSnipsExpandTrigger="<leader>sx"
-vim.g.UltiSnipsJumpForwardTrigger="<leader>sf"
-vim.g.UltiSnipsJumpBackwardTrigger="<leader>sb"
 
 -- custom actions - because I can
 map('v', '<leader>c',   ':lua CopyToClipboard()<CR>',{noremap=true})
