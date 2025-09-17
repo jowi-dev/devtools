@@ -1,6 +1,6 @@
 # Build j command
 j: j.ml
-	PATH="$$(mise env --shell=bash | grep PATH | cut -d= -f2 | tr -d '"'):$$PATH" ocamlopt -I +unix unix.cmxa -o j j.ml
+	eval "$$(mise env --shell=bash)" && ocamlopt -I +unix unix.cmxa -o j j.ml
 
 # Install system dependencies and setup development environment
 install:

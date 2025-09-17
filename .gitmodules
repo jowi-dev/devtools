@@ -10,3 +10,6 @@
 [submodule "nvim/pack/plugins/start/LuaSnip"]
 	path = nvim/pack/plugins/start/LuaSnip
 	url = https://github.com/L3MON4D3/LuaSnip.git
+[submodule "nvim/pack/plugins/start/nvim-tag-stack"]
+	path = nvim/pack/plugins/start/nvim-tag-stack
+	url = https://github.com/jowi-dev/nvim-tag-stack.git

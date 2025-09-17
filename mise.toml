@@ -2,3 +2,6 @@
 elixir = "latest"
 expert = "latest"
 ocaml = "latest"
+
+[env]
+DEVTOOLS_ROOT = "{{ config_root }}"

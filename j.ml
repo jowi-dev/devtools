@@ -12,18 +12,31 @@ let packages = [
 
 let install_location = "/usr/local/bin/j"
 
-let repo_root = Filename.dirname (Sys.argv.(0))
+let repo_root = 
+  try
+    Sys.getenv "DEVTOOLS_ROOT"
+  with Not_found ->
+    (* Fallback to current executable directory for local usage *)
+    Filename.dirname (Sys.argv.(0))
 
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
   print_endline "";
   print_endline "Usage: j [--force] <import|export|install> <package|--all>";
+  print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
   print_endline "";
   print_endline "Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
   print_endline "  export <package>  Copy config from repo to system location";
   print_endline "  export --all     Export all available packages to system";
   print_endline "  install          Install j command to /usr/local/bin";
+  print_endline "";
+  print_endline "Nvim Commands:";
+  print_endline "  nvim install <url> [name]  Install plugin from git URL as submodule";
+  print_endline "                             Optional custom name overrides default";
+  print_endline "  nvim list                  List installed plugins";
+  print_endline "  nvim update <name>         Update plugin to latest version";
+  print_endline "  nvim remove <name>         Remove plugin submodule";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -133,6 +146,129 @@ let read_yes_no () =
   flush stdout;
   let response = read_line () in
   String.lowercase_ascii (String.trim response) = "y"
+
+let extract_plugin_name_from_url url =
+  let parts = String.split_on_char '/' url in
+  match List.rev parts with
+  | name :: _ when String.ends_with ~suffix:".git" name ->
+    String.sub name 0 (String.length name - 4)
+  | name :: _ -> name
+  | [] -> failwith "Invalid git URL"
+
+let nvim_plugins_path () =
+  Filename.concat repo_root "nvim/pack/plugins/start"
+
+let nvim_install_plugin url custom_name_opt =
+  printf "Installing nvim plugin from %s\n" url;
+  
+  let plugin_name = match custom_name_opt with
+    | Some name -> name
+    | None -> extract_plugin_name_from_url url in
+  
+  let plugins_dir = nvim_plugins_path () in
+  let plugin_path = Filename.concat plugins_dir plugin_name in
+  
+  (* Check if plugin already exists *)
+  if file_exists plugin_path then (
+    printf "Error: Plugin '%s' already exists at %s\n" plugin_name plugin_path;
+    exit 1
+  );
+  
+  (* Ensure plugins directory exists *)
+  let _ = Sys.command (sprintf "mkdir -p \"%s\"" plugins_dir) in
+  
+  (* Add as git submodule *)
+  let submodule_path = sprintf "nvim/pack/plugins/start/%s" plugin_name in
+  let add_cmd = sprintf "cd \"%s\" && git submodule add \"%s\" \"%s\"" repo_root url submodule_path in
+  let exit_code = Sys.command add_cmd in
+  
+  if exit_code <> 0 then (
+    printf "Error: Failed to add plugin as submodule\n";
+    exit 1
+  );
+  
+  printf "✓ Successfully installed plugin '%s'\n" plugin_name;
+  printf "  Location: %s\n" plugin_path
+
+let nvim_list_plugins () =
+  let plugins_dir = nvim_plugins_path () in
+  
+  if not (file_exists plugins_dir) then (
+    print_endline "No nvim plugins directory found";
+    exit 0
+  );
+  
+  printf "Installed nvim plugins in %s:\n" plugins_dir;
+  print_endline "";
+  
+  let list_cmd = sprintf "ls -la \"%s\"" plugins_dir in
+  let _ = Sys.command list_cmd in
+  ()
+
+let nvim_remove_plugin name =
+  printf "Removing nvim plugin '%s'\n" name;
+  
+  let plugins_dir = nvim_plugins_path () in
+  let plugin_path = Filename.concat plugins_dir name in
+  
+  if not (file_exists plugin_path) then (
+    printf "Error: Plugin '%s' not found at %s\n" name plugin_path;
+    exit 1
+  );
+  
+  let submodule_path = sprintf "nvim/pack/plugins/start/%s" name in
+  
+  (* Remove from git submodules *)
+  let deinit_cmd = sprintf "cd \"%s\" && git submodule deinit -f \"%s\"" repo_root submodule_path in
+  let rm_cmd = sprintf "cd \"%s\" && git rm -f \"%s\"" repo_root submodule_path in
+  let cleanup_cmd = sprintf "cd \"%s\" && rm -rf \".git/modules/%s\"" repo_root submodule_path in
+  
+  let exit1 = Sys.command deinit_cmd in
+  let exit2 = Sys.command rm_cmd in  
+  let _ = Sys.command cleanup_cmd in
+  
+  if exit1 <> 0 || exit2 <> 0 then (
+    printf "Warning: Some cleanup commands failed, but plugin directory removed\n"
+  );
+  
+  printf "✓ Successfully removed plugin '%s'\n" name
+
+let nvim_update_plugin name =
+  printf "Updating nvim plugin '%s'\n" name;
+  
+  let plugins_dir = nvim_plugins_path () in
+  let plugin_path = Filename.concat plugins_dir name in
+  
+  if not (file_exists plugin_path) then (
+    printf "Error: Plugin '%s' not found at %s\n" name plugin_path;
+    exit 1
+  );
+  
+  let submodule_path = sprintf "nvim/pack/plugins/start/%s" name in
+  
+  (* Update the submodule to latest *)
+  let update_cmd = sprintf "cd \"%s\" && git submodule update --remote \"%s\"" repo_root submodule_path in
+  let exit_code = Sys.command update_cmd in
+  
+  if exit_code <> 0 then (
+    printf "Error: Failed to update plugin '%s'\n" name;
+    exit 1
+  );
+  
+  printf "✓ Successfully updated plugin '%s' to latest version\n" name
+
+let handle_nvim_command args =
+  match args with
+  | ["install"; url] -> nvim_install_plugin url None
+  | ["install"; url; custom_name] -> nvim_install_plugin url (Some custom_name)
+  | ["list"] -> nvim_list_plugins ()
+  | ["update"; name] -> nvim_update_plugin name
+  | ["remove"; name] -> nvim_remove_plugin name
+  | _ ->
+    print_endline "Error: Invalid nvim command";
+    print_endline "Usage: j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
+    show_help ();
+    exit 1
 
 let export_all_packages () =
   print_endline "Exporting all packages to system locations...";
@@ -255,6 +391,7 @@ let () =
   | [] -> show_help ()
   | ["install"] -> install_self ()
   | ["export"; "--all"] -> export_all_packages ()
+  | "nvim" :: nvim_args -> handle_nvim_command nvim_args
   | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
