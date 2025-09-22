@@ -1,6 +1,6 @@
 [tools]
 elixir = "latest"
-expert = "latest"
+#expert = "latest"
 elixir-ls = "latest"
 ocaml = "latest"
 

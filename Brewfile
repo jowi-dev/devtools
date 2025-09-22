@@ -3,6 +3,7 @@
 brew "git"
 brew "neovim" 
 brew "ripgrep"
+brew "fzf"
 brew "bat"
 brew "tmux"
 brew "cocoapods"
