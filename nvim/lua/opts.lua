@@ -1,6 +1,7 @@
 -- Colors and Themes
-require('theme').setup()
-vim.opt.background = 'light'
+require('theme_toggle')
+require('theme_dark').setup()
+vim.opt.background = 'dark'
 local cmd = vim.cmd
 cmd('syntax on')
 cmd('set clipboard+=unnamedplus')

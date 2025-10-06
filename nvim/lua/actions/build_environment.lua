@@ -34,14 +34,3 @@ function BuildEnv()
   --print("Environment Rebuilt.")
 end
 
-function LightMode()
-  vim.cmd('let ayucolor="light"')
-  vim.cmd('colorscheme github')
-  --BuildEnv()
-end
-
-function DarkMode()
-  vim.cmd('colorscheme angr')
-  --BuildEnv()
-end
-
