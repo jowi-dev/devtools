@@ -13,8 +13,10 @@ cask "claude-code"
 brew "starship"
 brew "firebase-cli"
 brew "docker"
+brew "docker-compose"
 brew "colima"
 brew "universal-ctags"
+brew "git-delta"
 
 
 # Applications
