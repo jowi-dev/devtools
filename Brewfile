@@ -17,6 +17,7 @@ brew "docker-compose"
 brew "colima"
 brew "universal-ctags"
 brew "git-delta"
+brew "nnn"
 
 
 # Applications
