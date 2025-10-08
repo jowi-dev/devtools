@@ -16,6 +16,7 @@ end
 # Environment variables
 set -gx EDITOR nvim
 set -gx VISUAL nvim
+set -gx DEVTOOLS_ROOT /Users/jowi/devtools
 
 # Abbreviations (expand on space)
 abbr -a vim nvim
@@ -35,6 +36,9 @@ abbr -a jps j project search
 abbr -a jpl j plan
 abbr -a jplv j plan view
 abbr -a jpls j plan save
+abbr -a jtil j til
+abbr -a jtill j til list
+abbr -a jtils j til search
 
 # Path additions
 fish_add_path -g /usr/local/bin

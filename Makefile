@@ -45,6 +45,16 @@ install:
 	@echo "📦 Installing j command globally..."
 	@./j install
 	
+	# Set DEVTOOLS_ROOT in fish config
+	@echo "⚙️  Setting DEVTOOLS_ROOT in fish config..."
+	@DEVTOOLS_PATH="$$(pwd)"; \
+	if ! grep -q "DEVTOOLS_ROOT" ~/.config/fish/config.fish 2>/dev/null; then \
+		echo "set -gx DEVTOOLS_ROOT $$DEVTOOLS_PATH" >> ~/.config/fish/config.fish; \
+	else \
+		sed -i.bak "s|set -gx DEVTOOLS_ROOT .*|set -gx DEVTOOLS_ROOT $$DEVTOOLS_PATH|" ~/.config/fish/config.fish; \
+		rm -f ~/.config/fish/config.fish.bak; \
+	fi
+
 	# Export all configs to system
 	@echo "⚙️  Exporting all configs to system locations..."
 	@j export --all

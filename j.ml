@@ -20,7 +20,8 @@ let repo_root =
     Filename.dirname (Sys.argv.(0))
 
 let logs_root () = Filename.concat repo_root "logs"
-let daily_path () = Filename.concat (logs_root ()) "daily"
+let daily_path () = Filename.concat (logs_root ()) "dailies"
+let til_path () = Filename.concat (logs_root ()) "til"
 
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
@@ -29,6 +30,7 @@ let show_help () =
   print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
   print_endline "       j project <search> [pattern]";
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
+  print_endline "       j til <topic|list|search> [pattern]";
   print_endline "";
   print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
@@ -52,6 +54,11 @@ let show_help () =
   print_endline "  plan list [n]              List last n days of plans (default 7)";
   print_endline "  plan save                  Commit and push logs to git";
   print_endline "  plan YYYY-MM-DD            Edit plan for specific date";
+  print_endline "";
+  print_endline "TIL Commands:";
+  print_endline "  til <topic>                Edit TIL for topic (e.g., rust, nix)";
+  print_endline "  til list                   List all TIL topics";
+  print_endline "  til search <pattern>       Search across all TILs";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -473,6 +480,87 @@ let handle_plan_command args =
     show_help ();
     exit 1
 
+(* TIL command functions *)
+let ensure_til_dir () =
+  let dir = til_path () in
+  if not (file_exists dir) then (
+    let cmd = sprintf "mkdir -p \"%s\"" dir in
+    let _ = Sys.command cmd in
+    ()
+  )
+
+let get_til_file_path topic =
+  Filename.concat (til_path ()) (topic ^ ".md")
+
+let get_til_template topic =
+  let today = get_today_date () in
+  sprintf "# TIL: %s\n\n## %s\n- \n" topic today
+
+let edit_til topic =
+  ensure_til_dir ();
+  let til_file = get_til_file_path topic in
+
+  (* Create template if file doesn't exist *)
+  if not (file_exists til_file) then (
+    let template = get_til_template topic in
+    let oc = open_out til_file in
+    output_string oc template;
+    close_out oc;
+    printf "Created new TIL for %s\n" topic
+  );
+
+  let editor = get_editor () in
+  let cmd = sprintf "%s \"%s\"" editor til_file in
+  let _ = Sys.command cmd in
+  ()
+
+let list_tils () =
+  ensure_til_dir ();
+  let dir = til_path () in
+
+  printf "TIL topics:\n\n";
+
+  let cmd = sprintf "ls \"%s\"/*.md 2>/dev/null | sort" dir in
+  let ic = Unix.open_process_in cmd in
+
+  let rec read_files () =
+    try
+      let file = input_line ic in
+      let basename = Filename.basename file in
+      let topic = String.sub basename 0 (String.length basename - 3) in
+      printf "  %s\n" topic;
+      read_files ()
+    with End_of_file -> () in
+
+  read_files ();
+  let _ = Unix.close_process_in ic in
+  ()
+
+let search_tils pattern =
+  ensure_til_dir ();
+  let dir = til_path () in
+
+  printf "Searching TILs for: %s\n\n" pattern;
+
+  let cmd = sprintf "rg -i --color=always \"%s\" \"%s\"/*.md 2>/dev/null" pattern dir in
+  let exit_code = Sys.command cmd in
+  if exit_code <> 0 then
+    printf "No matches found\n"
+
+let handle_til_command args =
+  match args with
+  | ["list"] ->
+    list_tils ()
+  | ["search"; pattern] ->
+    search_tils pattern
+  | [topic] ->
+    edit_til topic
+  | _ ->
+    print_endline "Error: Invalid til command";
+    print_endline "Usage: j til <topic|list|search> [pattern]";
+    show_help ();
+    exit 1
+
 let handle_nvim_command args =
   match args with
   | ["install"; url] -> nvim_install_plugin url None
@@ -531,29 +619,37 @@ let sync_config force_flag action package_name =
     exit 1
   | Some (_, repo_path, sys_path) ->
     let repo_full_path = Filename.concat repo_root repo_path in
-    
+
     match action with
     | "export" ->
       printf "Exporting %s: %s -> %s\n" package_name repo_full_path sys_path;
-      
+
       if not (file_exists repo_full_path) then (
         printf "Error: Source path does not exist: %s\n" repo_full_path;
         exit 1
       );
-      
+
       ensure_parent_dir sys_path;
       backup_if_exists sys_path;
       copy_recursive repo_full_path sys_path;
-      printf "✓ Exported %s successfully\n" package_name
-    
+      printf "✓ Exported %s successfully\n" package_name;
+
+      (* Source fish config if we just exported it *)
+      if package_name = "fish" then (
+        printf "Sourcing fish config...\n";
+        let source_cmd = "fish -c 'source ~/.config/fish/config.fish'" in
+        let _ = Sys.command source_cmd in
+        printf "✓ Fish config reloaded\n"
+      )
+
     | "import" ->
       printf "Importing %s: %s -> %s\n" package_name sys_path repo_full_path;
-      
+
       if not (file_exists sys_path) then (
         printf "Error: System config does not exist: %s\n" sys_path;
         exit 1
       );
-      
+
       (* Check timestamps unless --force is used *)
       if not force_flag && file_exists repo_full_path then (
         let sys_newer = is_newer sys_path repo_full_path in
@@ -563,24 +659,24 @@ let sync_config force_flag action package_name =
         let repo_time = match get_modification_time repo_full_path with
           | Some t -> format_time t
           | None -> "unknown" in
-        
+
         printf "System config: %s\n" sys_time;
         printf "Repo config:   %s\n" repo_time;
-        
+
         if not sys_newer then (
           printf "⚠️  System config is not newer than repo config.\n";
         );
-        
+
         if not (read_yes_no ()) then (
           print_endline "Import cancelled.";
           exit 0
         )
       );
-      
+
       backup_if_exists repo_full_path;
       copy_recursive sys_path repo_full_path;
       printf "✓ Imported %s successfully\n" package_name
-    
+
     | _ ->
       print_endline "Error: Action must be 'import' or 'export'";
       show_help ();
@@ -610,6 +706,7 @@ let () =
   | "nvim" :: nvim_args -> handle_nvim_command nvim_args
   | "project" :: project_args -> handle_project_command project_args
   | "plan" :: plan_args -> handle_plan_command plan_args
+  | "til" :: til_args -> handle_til_command til_args
   | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
