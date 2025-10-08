@@ -12,7 +12,36 @@ Wouldn't it be great to have a development environment that grows with you inste
 - **Enhanced shell experience** with Fish shell and Starship prompt
 - **Development templates** for various programming languages via Nix flakes
 - **Config synchronization** with the `j` command to keep environments in sync
+- **Daily planning & logging** with markdown-based dailies and TILs
+- **Project workflow tools** for searching and exploring codebases
 - **One-command setup** that gets you from zero to fully configured development environment
+
+## Features in Action
+
+### Daily Planning
+Keep track of your daily goals, notes, and accomplishments with structured markdown logs.
+
+![Daily Planning Demo](https://github.com/jowi-dev/devtools/releases/download/demos/daily-planning.gif)
+
+### Today I Learned (TIL)
+Capture and organize learnings by topic. Polish and publish to your public repo when ready.
+
+![TIL Workflow Demo](https://github.com/jowi-dev/devtools/releases/download/demos/til-workflow.gif)
+
+### Project Search
+Lightning-fast code search with ripgrep + fzf, opening directly in Neovim.
+
+![Project Search Demo](https://github.com/jowi-dev/devtools/releases/download/demos/project-search.gif)
+
+### Config Sync
+Seamlessly sync configurations between your repo and system locations.
+
+![Config Sync Demo](https://github.com/jowi-dev/devtools/releases/download/demos/config-sync.gif)
+
+### Quick Shortcuts
+Fish abbreviations make common workflows blazingly fast.
+
+![Quick Shortcuts Demo](https://github.com/jowi-dev/devtools/releases/download/demos/quick-shortcuts.gif)
 
 ## Quick Start
 
@@ -63,7 +92,7 @@ j export --all
 # Import specific config from system to repo
 j import nvim
 
-# Export specific config from repo to system  
+# Export specific config from repo to system
 j export fish
 
 # Force operations (skip timestamp checks)
@@ -71,6 +100,57 @@ j --force export starship
 
 # Install j command globally (if needed)
 j install
+```
+
+### Daily Planning & Logging
+Stay organized with markdown-based daily plans:
+
+```bash
+# Edit today's plan (or use: jpl)
+j plan
+
+# View today's plan (or use: jplv)
+j plan view
+
+# List recent plans
+j plan list [n]
+
+# Edit specific date
+j plan 2025-10-08
+
+# Commit and push logs (or use: jpls)
+j plan save
+```
+
+### Today I Learned (TIL)
+Capture and share your learnings:
+
+```bash
+# Edit private TIL (or use: jtil)
+j til <topic>
+
+# List private TILs (or use: jtill)
+j til list
+
+# Search TILs (or use: jtils)
+j til search <pattern>
+
+# Polish and export to public repo
+j til export <topic>
+
+# List public TILs
+j til list --public
+```
+
+### Project Workflow
+Navigate and search your codebase efficiently:
+
+```bash
+# Search files with ripgrep + fzf (or use: jps)
+j project search [pattern]
+
+# Open file explorer in current directory (or use: jpe)
+j project explore
 ```
 
 ### Development Templates
@@ -92,15 +172,30 @@ nix flake init -t .#odin          # Odin graphics development
 ### Configuration Structure
 - `/nvim/` - Complete Neovim configuration with modular Lua setup
 - `/templates/` - Nix flake templates for different development environments
-- `/logs/` - Git submodule for personal logging
-- Root level configs: `Brewfile`, `mise.toml`, `starship.toml`
+- `/logs/` - Private git submodule for personal logging (dailies, work notes, projects, private TILs)
+- `/public_logs/` - Public git submodule for published content (polished TILs)
+- Root level configs: `Brewfile`, `mise.toml`, `starship.toml`, `fish/config.fish`
+
+### Logging Structure
+**Private (`logs/` submodule):**
+- `dailies/` - Daily plans with Goals/Notes/Done sections
+- `work/` - Work-related notes and 1-1s
+- `projects/` - Project-specific notes
+- `til/` - Private, rough Today I Learned notes
+
+**Public (`public_logs/` submodule):**
+- `til/` - Polished, public-ready TIL articles
+
+**Workflow:** Write rough notes privately → Polish with `j til export` → Publish separately
 
 ### The `j` Command
-A custom tool for configuration management that:
-- Synchronizes configs between your repository and system locations
-- Handles backups automatically
-- Supports force operations and selective sync
-- Keeps track of modification timestamps to prevent accidental overwrites
+A custom OCaml-based CLI tool that provides:
+- **Config management**: Sync configs between repo and system locations
+- **Daily planning**: Markdown-based daily logs with auto-templating
+- **TIL management**: Capture learnings with public/private workflow
+- **Project tools**: Fast search and file exploration
+- **Automatic backups**: Never lose configuration changes
+- **Fish abbreviations**: Quick shortcuts for common workflows
 
 ### Neovim Configuration  
 Modularized in `/nvim/lua/`:
