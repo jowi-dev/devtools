@@ -13,3 +13,6 @@
 [submodule "logs"]
 	path = logs
 	url = git@github.com:jowi-dev/logs.git
+[submodule "public_logs"]
+	path = public_logs
+	url = git@github.com:jowi-dev/logs_external.git

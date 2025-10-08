@@ -22,6 +22,8 @@ let repo_root =
 let logs_root () = Filename.concat repo_root "logs"
 let daily_path () = Filename.concat (logs_root ()) "dailies"
 let til_path () = Filename.concat (logs_root ()) "til"
+let public_logs_root () = Filename.concat repo_root "public_logs"
+let public_til_path () = Filename.concat (public_logs_root ()) "til"
 
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
@@ -57,8 +59,9 @@ let show_help () =
   print_endline "";
   print_endline "TIL Commands:";
   print_endline "  til <topic>                Edit TIL for topic (e.g., rust, nix)";
-  print_endline "  til list                   List all TIL topics";
+  print_endline "  til list [--public]        List all TIL topics (add --public for published)";
   print_endline "  til search <pattern>       Search across all TILs";
+  print_endline "  til export <topic>         Polish and export TIL to public repo";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -514,11 +517,13 @@ let edit_til topic =
   let _ = Sys.command cmd in
   ()
 
-let list_tils () =
-  ensure_til_dir ();
-  let dir = til_path () in
+let list_tils is_public =
+  let dir = if is_public then public_til_path () else til_path () in
+  let label = if is_public then "Public TIL topics" else "TIL topics" in
 
-  printf "TIL topics:\n\n";
+  if not is_public then ensure_til_dir ();
+
+  printf "%s:\n\n" label;
 
   let cmd = sprintf "ls \"%s\"/*.md 2>/dev/null | sort" dir in
   let ic = Unix.open_process_in cmd in
@@ -547,17 +552,57 @@ let search_tils pattern =
   if exit_code <> 0 then
     printf "No matches found\n"
 
+let export_til topic =
+  let private_til = get_til_file_path topic in
+
+  if not (file_exists private_til) then (
+    printf "Error: TIL '%s' not found at %s\n" topic private_til;
+    printf "Create it first with: j til %s\n" topic;
+    exit 1
+  );
+
+  printf "Opening TIL for polishing...\n";
+  let editor = get_editor () in
+  let edit_cmd = sprintf "%s \"%s\"" editor private_til in
+  let _ = Sys.command edit_cmd in
+
+  (* Copy to public location *)
+  let public_til_dir = public_til_path () in
+  let public_til = Filename.concat public_til_dir (topic ^ ".md") in
+
+  (* Ensure public til directory exists *)
+  if not (file_exists public_til_dir) then (
+    let cmd = sprintf "mkdir -p \"%s\"" public_til_dir in
+    let _ = Sys.command cmd in
+    ()
+  );
+
+  let copy_cmd = sprintf "cp \"%s\" \"%s\"" private_til public_til in
+  let exit_code = Sys.command copy_cmd in
+
+  if exit_code <> 0 then (
+    printf "Error: Failed to export TIL to public repo\n";
+    exit 1
+  );
+
+  printf "✓ Exported '%s' to public repo at %s\n" topic public_til;
+  printf "Don't forget to commit and push public_logs!\n"
+
 let handle_til_command args =
   match args with
   | ["list"] ->
-    list_tils ()
+    list_tils false
+  | ["list"; "--public"] ->
+    list_tils true
   | ["search"; pattern] ->
     search_tils pattern
+  | ["export"; topic] ->
+    export_til topic
   | [topic] ->
     edit_til topic
   | _ ->
     print_endline "Error: Invalid til command";
-    print_endline "Usage: j til <topic|list|search> [pattern]";
+    print_endline "Usage: j til <topic|list [--public]|search <pattern>|export <topic>>";
     show_help ();
     exit 1
 
