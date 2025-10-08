@@ -30,6 +30,12 @@ abbr -a gd git diff
 abbr -a dc docker-compose
 abbr -a d docker
 
+# j command shortcuts
+abbr -a jps j project search
+abbr -a jpl j plan
+abbr -a jplv j plan view
+abbr -a jpls j plan save
+
 # Path additions
 fish_add_path -g /usr/local/bin
 fish_add_path -g ~/.local/bin

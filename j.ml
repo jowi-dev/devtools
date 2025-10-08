@@ -28,8 +28,7 @@ let show_help () =
   print_endline "Usage: j [--force] <import|export|install> <package|--all>";
   print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
   print_endline "       j project <search> [pattern]";
-  print_endline "       j ps [pattern]";
-  print_endline "       j plan [view|list|YYYY-MM-DD]";
+  print_endline "       j plan [view|list|save|YYYY-MM-DD]";
   print_endline "";
   print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
@@ -46,12 +45,12 @@ let show_help () =
   print_endline "";
   print_endline "Project Commands:";
   print_endline "  project search [pattern]   Search files with ripgrep+fzf, open in nvim";
-  print_endline "  ps [pattern]               Shorthand for project search";
   print_endline "";
   print_endline "Plan Commands:";
   print_endline "  plan                       Edit today's plan in $EDITOR";
   print_endline "  plan view                  View today's plan";
   print_endline "  plan list [n]              List last n days of plans (default 7)";
+  print_endline "  plan save                  Commit and push logs to git";
   print_endline "  plan YYYY-MM-DD            Edit plan for specific date";
   print_endline "";
   print_endline "Options:";
@@ -303,10 +302,9 @@ let handle_project_command args =
   | [] -> project_search None
   | ["search"] -> project_search None
   | ["search"; pattern] -> project_search (Some pattern)
-  | [pattern] -> project_search (Some pattern) (* For `j ps pattern` shorthand *)
   | _ ->
     print_endline "Error: Invalid project command";
-    print_endline "Usage: j project search [pattern] or j ps [pattern]";
+    print_endline "Usage: j project search [pattern]";
     show_help ();
     exit 1
 
@@ -409,6 +407,45 @@ let list_plans n =
   let _ = Unix.close_process_in ic in
   ()
 
+let save_logs () =
+  let logs_dir = logs_root () in
+  let today = get_today_date () in
+  let commit_msg = sprintf "logs for %s" today in
+
+  printf "Saving logs to git...\n";
+
+  (* Add all changes *)
+  let add_cmd = sprintf "cd \"%s\" && git add ." logs_dir in
+  let _ = Sys.command add_cmd in
+
+  (* Check if there are changes to commit *)
+  let status_cmd = sprintf "cd \"%s\" && git diff --cached --quiet" logs_dir in
+  let has_changes = Sys.command status_cmd <> 0 in
+
+  if not has_changes then (
+    printf "No changes to commit\n";
+    exit 0
+  );
+
+  (* Commit changes *)
+  let commit_cmd = sprintf "cd \"%s\" && git commit -m \"%s\"" logs_dir commit_msg in
+  let exit_code = Sys.command commit_cmd in
+  if exit_code <> 0 then (
+    printf "Error: Failed to commit changes\n";
+    exit 1
+  );
+
+  (* Push to remote *)
+  printf "Pushing to remote...\n";
+  let push_cmd = sprintf "cd \"%s\" && git push" logs_dir in
+  let exit_code = Sys.command push_cmd in
+  if exit_code <> 0 then (
+    printf "Error: Failed to push to remote\n";
+    exit 1
+  );
+
+  printf "✓ Successfully saved logs for %s\n" today
+
 let handle_plan_command args =
   match args with
   | [] ->
@@ -426,11 +463,13 @@ let handle_plan_command args =
     with _ ->
       print_endline "Error: Invalid number for list count";
       exit 1)
+  | ["save"] ->
+    save_logs ()
   | [date] when is_valid_date date ->
     edit_plan date
   | _ ->
     print_endline "Error: Invalid plan command";
-    print_endline "Usage: j plan [view|list [n]|YYYY-MM-DD]";
+    print_endline "Usage: j plan [view|list [n]|save|YYYY-MM-DD]";
     show_help ();
     exit 1
 
@@ -570,7 +609,6 @@ let () =
   | ["export"; "--all"] -> export_all_packages ()
   | "nvim" :: nvim_args -> handle_nvim_command nvim_args
   | "project" :: project_args -> handle_project_command project_args
-  | "ps" :: ps_args -> handle_project_command ps_args
   | "plan" :: plan_args -> handle_plan_command plan_args
   | [action; package] -> sync_config force_flag action package
   | _ ->

@@ -10,3 +10,6 @@
 [submodule "nvim/pack/plugins/start/nvim-tag-stack"]
 	path = nvim/pack/plugins/start/nvim-tag-stack
 	url = https://github.com/jowi-dev/nvim-context-panel.git
+[submodule "logs"]
+	path = logs
+	url = git@github.com:jowi-dev/logs.git
