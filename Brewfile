@@ -18,6 +18,7 @@ brew "colima"
 brew "universal-ctags"
 brew "git-delta"
 brew "nnn"
+brew "tree"
 
 
 # Applications

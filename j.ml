@@ -12,12 +12,15 @@ let packages = [
 
 let install_location = "/usr/local/bin/j"
 
-let repo_root = 
+let repo_root =
   try
     Sys.getenv "DEVTOOLS_ROOT"
   with Not_found ->
     (* Fallback to current executable directory for local usage *)
     Filename.dirname (Sys.argv.(0))
+
+let logs_root () = Filename.concat repo_root "logs"
+let daily_path () = Filename.concat (logs_root ()) "daily"
 
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
@@ -26,6 +29,7 @@ let show_help () =
   print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
   print_endline "       j project <search> [pattern]";
   print_endline "       j ps [pattern]";
+  print_endline "       j plan [view|list|YYYY-MM-DD]";
   print_endline "";
   print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
@@ -43,6 +47,12 @@ let show_help () =
   print_endline "Project Commands:";
   print_endline "  project search [pattern]   Search files with ripgrep+fzf, open in nvim";
   print_endline "  ps [pattern]               Shorthand for project search";
+  print_endline "";
+  print_endline "Plan Commands:";
+  print_endline "  plan                       Edit today's plan in $EDITOR";
+  print_endline "  plan view                  View today's plan";
+  print_endline "  plan list [n]              List last n days of plans (default 7)";
+  print_endline "  plan YYYY-MM-DD            Edit plan for specific date";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -291,12 +301,136 @@ let project_search pattern_opt =
 let handle_project_command args =
   match args with
   | [] -> project_search None
-  | ["search"] -> project_search None  
+  | ["search"] -> project_search None
   | ["search"; pattern] -> project_search (Some pattern)
   | [pattern] -> project_search (Some pattern) (* For `j ps pattern` shorthand *)
   | _ ->
     print_endline "Error: Invalid project command";
     print_endline "Usage: j project search [pattern] or j ps [pattern]";
+    show_help ();
+    exit 1
+
+(* Plan command functions *)
+let get_today_date () =
+  let tm = Unix.localtime (Unix.time ()) in
+  sprintf "%04d-%02d-%02d"
+    (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
+
+let is_valid_date str =
+  try
+    let parts = String.split_on_char '-' str in
+    match parts with
+    | [year; month; day] ->
+      let y = int_of_string year in
+      let m = int_of_string month in
+      let d = int_of_string day in
+      String.length year = 4 &&
+      String.length month = 2 &&
+      String.length day = 2 &&
+      y >= 2000 && y <= 2100 &&
+      m >= 1 && m <= 12 &&
+      d >= 1 && d <= 31
+    | _ -> false
+  with _ -> false
+
+let get_plan_template date =
+  sprintf "# %s\n\n## Goals\n- [ ] \n- [ ] \n- [ ] \n\n## Notes\n\n\n## Done\n- \n" date
+
+let ensure_daily_dir () =
+  let dir = daily_path () in
+  if not (file_exists dir) then (
+    let cmd = sprintf "mkdir -p \"%s\"" dir in
+    let _ = Sys.command cmd in
+    ()
+  )
+
+let get_plan_path date =
+  Filename.concat (daily_path ()) (date ^ ".md")
+
+let get_editor () =
+  try Sys.getenv "EDITOR"
+  with Not_found -> "nvim"
+
+let edit_plan date =
+  ensure_daily_dir ();
+  let plan_path = get_plan_path date in
+
+  (* Create template if file doesn't exist *)
+  if not (file_exists plan_path) then (
+    let template = get_plan_template date in
+    let oc = open_out plan_path in
+    output_string oc template;
+    close_out oc;
+    printf "Created new plan for %s\n" date
+  );
+
+  let editor = get_editor () in
+  let cmd = sprintf "%s \"%s\"" editor plan_path in
+  let _ = Sys.command cmd in
+  ()
+
+let view_plan date =
+  let plan_path = get_plan_path date in
+
+  if not (file_exists plan_path) then (
+    printf "No plan found for %s\n" date;
+    exit 1
+  );
+
+  (* Try bat first, fall back to less *)
+  let viewer = if Sys.command "which bat > /dev/null 2>&1" = 0 then
+    "bat --style=plain"
+  else
+    "less" in
+
+  let cmd = sprintf "%s \"%s\"" viewer plan_path in
+  let _ = Sys.command cmd in
+  ()
+
+let list_plans n =
+  ensure_daily_dir ();
+  let dir = daily_path () in
+
+  printf "Recent plans (last %d days):\n\n" n;
+
+  let cmd = sprintf "ls -t \"%s\"/*.md 2>/dev/null | head -n %d" dir n in
+  let ic = Unix.open_process_in cmd in
+
+  let rec read_files () =
+    try
+      let file = input_line ic in
+      let basename = Filename.basename file in
+      let date = String.sub basename 0 (String.length basename - 3) in
+      printf "  %s - %s\n" date file;
+      read_files ()
+    with End_of_file -> () in
+
+  read_files ();
+  let _ = Unix.close_process_in ic in
+  ()
+
+let handle_plan_command args =
+  match args with
+  | [] ->
+    let today = get_today_date () in
+    edit_plan today
+  | ["view"] ->
+    let today = get_today_date () in
+    view_plan today
+  | ["list"] ->
+    list_plans 7
+  | ["list"; n_str] ->
+    (try
+      let n = int_of_string n_str in
+      list_plans n
+    with _ ->
+      print_endline "Error: Invalid number for list count";
+      exit 1)
+  | [date] when is_valid_date date ->
+    edit_plan date
+  | _ ->
+    print_endline "Error: Invalid plan command";
+    print_endline "Usage: j plan [view|list [n]|YYYY-MM-DD]";
     show_help ();
     exit 1
 
@@ -437,6 +571,7 @@ let () =
   | "nvim" :: nvim_args -> handle_nvim_command nvim_args
   | "project" :: project_args -> handle_project_command project_args
   | "ps" :: ps_args -> handle_project_command ps_args
+  | "plan" :: plan_args -> handle_plan_command plan_args
   | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
