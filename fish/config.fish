@@ -17,6 +17,7 @@ end
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 set -gx DEVTOOLS_ROOT /Users/jowi/devtools
+set -gx FILE_EXPLORER nnn
 
 # Abbreviations (expand on space)
 abbr -a vim nvim
@@ -33,6 +34,7 @@ abbr -a d docker
 
 # j command shortcuts
 abbr -a jps j project search
+abbr -a jpe j project explore
 abbr -a jpl j plan
 abbr -a jplv j plan view
 abbr -a jpls j plan save

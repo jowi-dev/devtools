@@ -51,6 +51,55 @@ j --force import <package>
 j install
 ```
 
+### Daily Planning & Logging
+```bash
+# Edit today's plan
+j plan
+# Fish abbreviation: jpl
+
+# View today's plan
+j plan view
+# Fish abbreviation: jplv
+
+# List recent plans
+j plan list [n]
+
+# Edit specific date
+j plan 2025-10-08
+
+# Commit and push logs
+j plan save
+# Fish abbreviation: jpls
+```
+
+### Today I Learned (TIL)
+```bash
+# Edit private TIL
+j til <topic>
+# Fish abbreviation: jtil
+
+# List private TILs
+j til list
+# Fish abbreviation: jtill
+
+# List public TILs
+j til list --public
+
+# Search TILs
+j til search <pattern>
+# Fish abbreviation: jtils
+
+# Polish and export to public repo
+j til export <topic>
+```
+
+### Project Search
+```bash
+# Search files with ripgrep + fzf, open in nvim
+j project search [pattern]
+# Fish abbreviation: jps
+```
+
 ### Nix Templates
 ```bash
 # List available templates
@@ -74,8 +123,26 @@ make wsl
 ### Configuration Structure
 - `/nvim/` - Complete Neovim configuration with Lua modules for keybindings, options, package config, language support, and aliases
 - `/templates/` - Nix flake templates for different development environments
-- `/logs/` - Git submodule for personal logging
-- Root level config files: `Brewfile`, `mise.toml`, `starship.toml`
+- `/logs/` - Private git submodule for personal logging (dailies, work notes, projects, private TILs)
+- `/public_logs/` - Public git submodule for published content (polished TILs, blog posts)
+- Root level config files: `Brewfile`, `mise.toml`, `starship.toml`, `fish/config.fish`
+
+### Logging Structure
+**Private (`logs/` submodule - git@github.com:jowi-dev/logs.git):**
+- `dailies/` - Daily plans and retrospectives with Goals/Notes/Done sections
+- `work/` - Work-related notes, 1-1s, performance reviews
+- `projects/` - Project-specific notes and planning
+- `til/` - Private, rough Today I Learned notes (working drafts)
+
+**Public (`public_logs/` submodule - git@github.com:jowi-dev/logs_external.git):**
+- `til/` - Polished, public-ready TIL articles
+- Future: blog posts, tutorials, etc.
+
+**Workflow:**
+1. Write rough notes in private `logs/til/`
+2. Polish with `j til export <topic>` - opens editor, then copies to `public_logs/til/`
+3. Commit private changes with `j plan save`
+4. Commit public changes separately in `public_logs/`
 
 ### Neovim Setup
 The Neovim configuration is modularized in `/nvim/lua/`:
@@ -87,14 +154,18 @@ The Neovim configuration is modularized in `/nvim/lua/`:
 
 ### Development Workflow
 This environment supports cross-platform development with:
-- **Homebrew** for macOS package management  
+- **Homebrew** for macOS package management
 - **mise** for language runtime management (Elixir, OCaml)
-- **j command** for config synchronization across machines
+- **j command** for config synchronization and logging workflow
 - **Starship** for enhanced shell prompting
-- **Fish shell** as the primary shell
-- **Git submodules** for modular configuration components
+- **Fish shell** as the primary shell with abbreviations for common commands
+- **Git submodules** for modular configuration components (nvim plugins, private logs, public logs)
 
 The templates system allows quick project initialization with pre-configured development environments for different languages and frameworks.
+
+**Key Environment Variables:**
+- `DEVTOOLS_ROOT` - Path to this repo, set automatically by `make install` in fish config
+- `EDITOR` - Set to `nvim` in fish config
 
 ### New Machine Setup
 1. Clone this repository
