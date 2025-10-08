@@ -21,27 +21,27 @@ Wouldn't it be great to have a development environment that grows with you inste
 ### Daily Planning
 Keep track of your daily goals, notes, and accomplishments with structured markdown logs.
 
-![Daily Planning Demo](https://github.com/jowi-dev/devtools/releases/download/demos/daily-planning.gif)
+![Daily Planning Demo](demos/daily-planning.gif)
 
 ### Today I Learned (TIL)
 Capture and organize learnings by topic. Polish and publish to your public repo when ready.
 
-![TIL Workflow Demo](https://github.com/jowi-dev/devtools/releases/download/demos/til-workflow.gif)
+![TIL Workflow Demo](demos/til-workflow.gif)
 
 ### Project Search
 Lightning-fast code search with ripgrep + fzf, opening directly in Neovim.
 
-![Project Search Demo](https://github.com/jowi-dev/devtools/releases/download/demos/project-search.gif)
+![Project Search Demo](demos/project-search.gif)
 
 ### Config Sync
 Seamlessly sync configurations between your repo and system locations.
 
-![Config Sync Demo](https://github.com/jowi-dev/devtools/releases/download/demos/config-sync.gif)
+![Config Sync Demo](demos/config-sync.gif)
 
 ### Quick Shortcuts
 Fish abbreviations make common workflows blazingly fast.
 
-![Quick Shortcuts Demo](https://github.com/jowi-dev/devtools/releases/download/demos/quick-shortcuts.gif)
+![Quick Shortcuts Demo](demos/quick-shortcuts.gif)
 
 ## Quick Start
 
