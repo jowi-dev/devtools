@@ -49,6 +49,7 @@ let show_help () =
   print_endline "";
   print_endline "Project Commands:";
   print_endline "  project search [pattern]   Search files with ripgrep+fzf, open in nvim";
+  print_endline "  project files              Search by file name with fzf, open in nvim";
   print_endline "  project explore            Open current directory in file explorer (nnn)";
   print_endline "";
   print_endline "Plan Commands:";
@@ -308,6 +309,21 @@ let project_search pattern_opt =
   if exit_code <> 0 && exit_code <> 130 then (* 130 is fzf cancelled with Ctrl-C *)
     printf "Search failed or cancelled\n"
 
+let project_files () =
+  (* Use fd if available, fallback to find *)
+  let has_fd = Sys.command "which fd > /dev/null 2>&1" = 0 in
+
+  let find_cmd = if has_fd then
+    "fd --type f --hidden --exclude .git"
+  else
+    "find . -type f -not -path '*/\\.git/*'" in
+
+  let fzf_cmd = sprintf "%s | fzf --preview 'bat --color=always {}' --preview-window 'right:60%%' --bind 'enter:execute(nvim {})'" find_cmd in
+
+  let exit_code = Sys.command fzf_cmd in
+  if exit_code <> 0 && exit_code <> 130 then (* 130 is fzf cancelled with Ctrl-C *)
+    printf "Search failed or cancelled\n"
+
 let get_file_explorer () =
   try Sys.getenv "FILE_EXPLORER"
   with Not_found -> "nnn"
@@ -323,10 +339,11 @@ let handle_project_command args =
   | [] -> project_search None
   | ["search"] -> project_search None
   | ["search"; pattern] -> project_search (Some pattern)
+  | ["files"] -> project_files ()
   | ["explore"] -> project_explore ()
   | _ ->
     print_endline "Error: Invalid project command";
-    print_endline "Usage: j project <search [pattern]|explore>";
+    print_endline "Usage: j project <search [pattern]|files|explore>";
     show_help ();
     exit 1
 

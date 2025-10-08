@@ -34,6 +34,7 @@ abbr -a d docker
 
 # j command shortcuts
 abbr -a jps j project search
+abbr -a jpf j project files
 abbr -a jpe j project explore
 abbr -a jpl j plan
 abbr -a jplv j plan view
