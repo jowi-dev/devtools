@@ -45,14 +45,22 @@ install:
 	@echo "📦 Installing j command globally..."
 	@./j install
 	
-	# Set DEVTOOLS_ROOT in fish config
-	@echo "⚙️  Setting DEVTOOLS_ROOT in fish config..."
+	# Set DEVTOOLS_ROOT and MACHINE_TYPE in fish config
+	@echo "⚙️  Setting environment variables in fish config..."
 	@DEVTOOLS_PATH="$$(pwd)"; \
 	if ! grep -q "DEVTOOLS_ROOT" ~/.config/fish/config.fish 2>/dev/null; then \
 		echo "set -gx DEVTOOLS_ROOT $$DEVTOOLS_PATH" >> ~/.config/fish/config.fish; \
 	else \
 		sed -i.bak "s|set -gx DEVTOOLS_ROOT .*|set -gx DEVTOOLS_ROOT $$DEVTOOLS_PATH|" ~/.config/fish/config.fish; \
 		rm -f ~/.config/fish/config.fish.bak; \
+	fi
+	@if ! grep -q "MACHINE_TYPE" ~/.config/fish/config.fish 2>/dev/null; then \
+		read -p "Is this a work or personal machine? [work/personal] (default: personal): " machine_type; \
+		machine_type=$${machine_type:-personal}; \
+		echo "set -gx MACHINE_TYPE $$machine_type" >> ~/.config/fish/config.fish; \
+		echo "✅ MACHINE_TYPE set to $$machine_type"; \
+	else \
+		echo "✅ MACHINE_TYPE already configured"; \
 	fi
 
 	# Export all configs to system

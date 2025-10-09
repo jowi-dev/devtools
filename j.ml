@@ -51,6 +51,7 @@ let show_help () =
   print_endline "  project search [pattern]   Search files with ripgrep+fzf, open in nvim";
   print_endline "  project files              Search by file name with fzf, open in nvim";
   print_endline "  project explore            Open current directory in file explorer (nnn)";
+  print_endline "  project plan <topic>       Create/edit project planning doc";
   print_endline "";
   print_endline "Plan Commands:";
   print_endline "  plan                       Edit today's plan in $EDITOR";
@@ -328,11 +329,128 @@ let get_file_explorer () =
   try Sys.getenv "FILE_EXPLORER"
   with Not_found -> "nnn"
 
+let get_editor () =
+  try Sys.getenv "EDITOR"
+  with Not_found -> "nvim"
+
 let project_explore () =
   let explorer = get_file_explorer () in
   let exit_code = Sys.command explorer in
   if exit_code <> 0 then
     printf "Failed to launch file explorer\n"
+
+let get_machine_type () =
+  try Sys.getenv "MACHINE_TYPE"
+  with Not_found -> "personal"
+
+let read_project_name () =
+  let mise_file = "./mise.toml" in
+  if not (file_exists mise_file) then
+    None
+  else
+    try
+      let ic = open_in mise_file in
+      let rec find_project_name in_env_section =
+        try
+          let line = input_line ic in
+          let trimmed = String.trim line in
+          (* Check if we're entering [env] section *)
+          if trimmed = "[env]" then
+            find_project_name true
+          (* If in env section, look for PROJECT_NAME *)
+          else if in_env_section && String.length trimmed > 0 then
+            if String.starts_with ~prefix:"PROJECT_NAME" trimmed then
+              (* Parse: PROJECT_NAME = "value" *)
+              match String.split_on_char '=' trimmed with
+              | [_key; value] ->
+                let cleaned = String.trim value in
+                let unquoted =
+                  if String.length cleaned >= 2 &&
+                     String.get cleaned 0 = '"' &&
+                     String.get cleaned (String.length cleaned - 1) = '"' then
+                    String.sub cleaned 1 (String.length cleaned - 2)
+                  else
+                    cleaned
+                in
+                close_in ic;
+                Some unquoted
+              | _ -> find_project_name in_env_section
+            (* If we hit another section, stop looking *)
+            else if String.starts_with ~prefix:"[" trimmed then
+              find_project_name false
+            else
+              find_project_name in_env_section
+          else
+            find_project_name in_env_section
+        with End_of_file ->
+          close_in ic;
+          None
+      in
+      find_project_name false
+    with Sys_error _ -> None
+
+let project_plan topic =
+  (* Get PROJECT_NAME from mise.toml *)
+  printf "Reading PROJECT_NAME from mise.toml...\n";
+  flush stdout;
+
+  match read_project_name () with
+  | None ->
+    printf "Error: PROJECT_NAME not found in ./mise.toml\n";
+    printf "Please add it to your mise.toml:\n";
+    printf "  [env]\n";
+    printf "  PROJECT_NAME = \"your-project-name\"\n";
+    exit 1
+  | Some project_name ->
+    printf "Found PROJECT_NAME: %s\n" project_name;
+    flush stdout;
+
+    let machine_type = get_machine_type () in
+    printf "MACHINE_TYPE: %s\n" machine_type;
+    flush stdout;
+
+    (* Determine directory based on machine type *)
+    let subdir = if machine_type = "work" then "work" else "projects" in
+    let plan_dir = Filename.concat (logs_root ()) subdir in
+    printf "Plan directory: %s\n" plan_dir;
+    flush stdout;
+
+    (* Ensure directory exists *)
+    if not (file_exists plan_dir) then (
+      printf "Creating directory...\n";
+      flush stdout;
+      let cmd = sprintf "mkdir -p \"%s\"" plan_dir in
+      let _ = Sys.command cmd in
+      ()
+    );
+
+    let filename = sprintf "%s_%s.md" project_name topic in
+    let filepath = Filename.concat plan_dir filename in
+    printf "File path: %s\n" filepath;
+    flush stdout;
+
+    (* Create file if it doesn't exist *)
+    if not (file_exists filepath) then (
+      printf "Creating new file...\n";
+      flush stdout;
+      let oc = open_out filepath in
+      fprintf oc "# %s - %s\n\n" project_name topic;
+      fprintf oc "## Overview\n\n";
+      fprintf oc "## Diagrams\n\n```mermaid\ngraph TD\n    A[Start] --> B[End]\n```\n\n";
+      fprintf oc "## Notes\n\n";
+      close_out oc;
+      printf "Created new project plan: %s/%s\n" subdir filename
+    );
+
+    (* Open in editor *)
+    printf "Opening in editor...\n";
+    flush stdout;
+    let editor = get_editor () in
+    let cmd = sprintf "%s \"%s\"" editor filepath in
+    printf "Running: %s\n" cmd;
+    flush stdout;
+    let _ = Sys.command cmd in
+    ()
 
 let handle_project_command args =
   match args with
@@ -341,9 +459,10 @@ let handle_project_command args =
   | ["search"; pattern] -> project_search (Some pattern)
   | ["files"] -> project_files ()
   | ["explore"] -> project_explore ()
+  | ["plan"; topic] -> project_plan topic
   | _ ->
     print_endline "Error: Invalid project command";
-    print_endline "Usage: j project <search [pattern]|files|explore>";
+    print_endline "Usage: j project <search [pattern]|files|explore|plan <topic>>";
     show_help ();
     exit 1
 
@@ -383,10 +502,6 @@ let ensure_daily_dir () =
 
 let get_plan_path date =
   Filename.concat (daily_path ()) (date ^ ".md")
-
-let get_editor () =
-  try Sys.getenv "EDITOR"
-  with Not_found -> "nvim"
 
 let edit_plan date =
   ensure_daily_dir ();

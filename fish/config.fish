@@ -18,6 +18,7 @@ set -gx EDITOR nvim
 set -gx VISUAL nvim
 set -gx DEVTOOLS_ROOT /Users/jowi/devtools
 set -gx FILE_EXPLORER nnn
+set -gx MACHINE_TYPE personal
 
 # Abbreviations (expand on space)
 abbr -a vim nvim
