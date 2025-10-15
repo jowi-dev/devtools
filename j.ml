@@ -29,6 +29,7 @@ let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
   print_endline "";
   print_endline "Usage: j [--force] <import|export|install> <package|--all>";
+  print_endline "       j config <load|save> [message]";
   print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
   print_endline "       j project <search> [pattern]";
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
@@ -37,8 +38,12 @@ let show_help () =
   print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
   print_endline "  export <package>  Copy config from repo to system location";
-  print_endline "  export --all     Export all available packages to system";
-  print_endline "  install          Install j command to /usr/local/bin";
+  print_endline "  export --all      Export all available packages to system";
+  print_endline "  install           Install j command to /usr/local/bin";
+  print_endline "";
+  print_endline "Git Sync Commands:";
+  print_endline "  config load       Pull repo and update all submodules from remote";
+  print_endline "  config save [msg] Commit and push repo and submodules to remote";
   print_endline "";
   print_endline "Nvim Commands:";
   print_endline "  nvim install <url> [name]  Install plugin from git URL as submodule";
@@ -600,6 +605,91 @@ let save_logs () =
 
   printf "✓ Successfully saved logs for %s\n" today
 
+(* Config command functions *)
+let config_load () =
+  printf "Loading config from remote repository...\n";
+
+  (* Pull main repository *)
+  printf "\n=== Pulling main repository ===\n";
+  let pull_cmd = sprintf "cd \"%s\" && git pull" repo_root in
+  let exit_code = Sys.command pull_cmd in
+  if exit_code <> 0 then (
+    printf "Error: Failed to pull from main repository\n";
+    exit 1
+  );
+
+  (* Update submodules *)
+  printf "\n=== Updating submodules ===\n";
+  let submodule_cmd = sprintf "cd \"%s\" && git submodule update --init --recursive --remote" repo_root in
+  let exit_code = Sys.command submodule_cmd in
+  if exit_code <> 0 then (
+    printf "Warning: Some submodules may not have updated correctly\n"
+  );
+
+  printf "\n✓ Successfully loaded config from remote\n"
+
+let config_save message_opt =
+  let today = get_today_date () in
+  let commit_msg = match message_opt with
+    | Some msg -> msg
+    | None -> sprintf "updates %s" today in
+
+  printf "Saving config to remote repository...\n";
+
+  (* Check for changes in main repo *)
+  let status_cmd = sprintf "cd \"%s\" && git status --short" repo_root in
+  printf "\n=== Main repository status ===\n";
+  let _ = Sys.command status_cmd in
+
+  (* Add all changes in main repo *)
+  printf "\nAdding changes...\n";
+  let add_cmd = sprintf "cd \"%s\" && git add ." repo_root in
+  let _ = Sys.command add_cmd in
+
+  (* Check if there are changes to commit *)
+  let diff_cmd = sprintf "cd \"%s\" && git diff --cached --quiet" repo_root in
+  let has_changes = Sys.command diff_cmd <> 0 in
+
+  if not has_changes then (
+    printf "No changes to commit in main repository\n"
+  ) else (
+    (* Commit changes *)
+    let commit_cmd = sprintf "cd \"%s\" && git commit -m \"%s\"" repo_root commit_msg in
+    let exit_code = Sys.command commit_cmd in
+    if exit_code <> 0 then (
+      printf "Error: Failed to commit changes\n";
+      exit 1
+    );
+    printf "✓ Committed changes\n"
+  );
+
+  (* Push to remote *)
+  printf "\nPushing to remote...\n";
+  let push_cmd = sprintf "cd \"%s\" && git push" repo_root in
+  let exit_code = Sys.command push_cmd in
+  if exit_code <> 0 then (
+    printf "Error: Failed to push to remote\n";
+    exit 1
+  );
+
+  (* Push submodules that have commits *)
+  printf "\n=== Pushing submodules ===\n";
+  let submodule_push_cmd = sprintf "cd \"%s\" && git submodule foreach 'git push || true'" repo_root in
+  let _ = Sys.command submodule_push_cmd in
+
+  printf "\n✓ Successfully saved config to remote\n"
+
+let handle_config_command args =
+  match args with
+  | ["load"] -> config_load ()
+  | ["save"] -> config_save None
+  | ["save"; message] -> config_save (Some message)
+  | _ ->
+    print_endline "Error: Invalid config command";
+    print_endline "Usage: j config <load|save [message]>";
+    show_help ();
+    exit 1
+
 let handle_plan_command args =
   match args with
   | [] ->
@@ -892,6 +982,7 @@ let () =
   | [] -> show_help ()
   | ["install"] -> install_self ()
   | ["export"; "--all"] -> export_all_packages ()
+  | "config" :: config_args -> handle_config_command config_args
   | "nvim" :: nvim_args -> handle_nvim_command nvim_args
   | "project" :: project_args -> handle_project_command project_args
   | "plan" :: plan_args -> handle_plan_command plan_args
