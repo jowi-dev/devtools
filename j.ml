@@ -131,6 +131,22 @@ let find_package name =
     Some (List.find (fun (n, _, _) -> n = name) packages)
   with Not_found -> None
 
+let check_version_sync () =
+  (* Only check if we're running from the installed location *)
+  let current_exe = Sys.argv.(0) in
+  if current_exe = install_location && file_exists install_location then (
+    let source_file = Filename.concat repo_root "j.ml" in
+
+    match (get_modification_time source_file, get_modification_time install_location) with
+    | (Some source_time, Some installed_time) ->
+      if source_time > installed_time then (
+        printf "⚠️  Warning: Your j source code has been updated!\n";
+        printf "   Run 'j install' to update the installed version.\n";
+        printf "   (Source modified: %s)\n\n" (format_time source_time)
+      )
+    | _ -> ()
+  )
+
 let install_self () =
   let current_exe = Sys.argv.(0) in
   printf "Installing j to %s\n" install_location;
@@ -978,6 +994,13 @@ let parse_args () =
 
 let () =
   let (force_flag, args) = parse_args () in
+
+  (* Check version sync for all commands except help and install *)
+  (match args with
+  | [] | ["install"] -> ()
+  | _ -> check_version_sync ()
+  );
+
   match args with
   | [] -> show_help ()
   | ["install"] -> install_self ()
