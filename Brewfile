@@ -20,6 +20,10 @@ brew "git-delta"
 brew "nnn"
 brew "tree"
 brew "vhs"
+brew "httpie"
+brew "hurl"
+brew "chafa"
+brew "flyctl"
 
 
 # Applications

@@ -4,3 +4,16 @@ elixir = "latest"
 #expert = "latest"
 elixir-ls = "latest"
 ocaml = "latest"
+
+[tasks.demos]
+description = "Generate GIFs from all VHS tapes in demos/"
+run = """
+#!/usr/bin/env bash
+set -e
+cd demos
+for tape in *.tape; do
+  echo "Processing $tape..."
+  vhs "$tape"
+done
+echo "All demos generated successfully!"
+"""

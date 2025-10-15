@@ -15,15 +15,14 @@ Enter
 Sleep 2s
 
 # Simulate editing in nvim
+Type "3j$"
 Type "i"
 Sleep 500ms
-Type "## Goals"
-Enter
-Type "- [ ] Build awesome devtools"
-Enter
-Type "- [ ] Write documentation"
-Enter
-Type "- [ ] Ship it!"
+Type " Build awesome devtools"
+Down
+Type "Write documentation"
+Down
+Type "Ship it!"
 Sleep 1s
 
 Escape

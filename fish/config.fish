@@ -32,6 +32,7 @@ abbr -a gl git log --oneline --graph
 abbr -a gd git diff
 abbr -a dc docker-compose
 abbr -a d docker
+abbr -a gif chafa --animate=on --watch
 
 # j command shortcuts
 abbr -a jps j project search

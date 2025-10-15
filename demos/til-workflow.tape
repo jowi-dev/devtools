@@ -12,17 +12,16 @@ Enter
 Type "# Create a new TIL"
 Sleep 500ms
 Enter
-Type "j til ocaml"
+Type "j til rust"
 Sleep 500ms
 Enter
 Sleep 2s
 
 # Simulate editing
+Type "3j$"
 Type "i"
 Sleep 500ms
-Type "## 2025-10-08"
-Enter
-Type "- Pattern matching is amazing for building CLIs"
+Type " Pattern matching is amazing for building CLIs"
 Enter
 Type "- Unix module provides great system integration"
 Enter
