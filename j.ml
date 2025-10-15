@@ -148,11 +148,19 @@ let check_version_sync () =
   )
 
 let install_self () =
+  (* If running from install location, use the repo binary instead *)
   let current_exe = Sys.argv.(0) in
+  let source_exe =
+    if current_exe = install_location then
+      Filename.concat repo_root "j"
+    else
+      current_exe in
+
   printf "Installing j to %s\n" install_location;
-  
-  if not (file_exists current_exe) then (
-    print_endline "Error: Cannot find current executable";
+
+  if not (file_exists source_exe) then (
+    printf "Error: Cannot find source executable at %s\n" source_exe;
+    print_endline "Please run 'make j' first to build the binary.";
     exit 1
   );
   
@@ -175,8 +183,8 @@ let install_self () =
     ()
   );
   
-  (* Copy current executable to install location *)
-  let install_cmd = sprintf "sudo cp \"%s\" \"%s\"" current_exe install_location in
+  (* Copy source executable to install location *)
+  let install_cmd = sprintf "sudo cp \"%s\" \"%s\"" source_exe install_location in
   let exit_code = Sys.command install_cmd in
   if exit_code <> 0 then (
     printf "Error: Failed to install j to %s\n" install_location;
@@ -186,7 +194,15 @@ let install_self () =
   (* Make sure it's executable *)
   let chmod_cmd = sprintf "sudo chmod +x \"%s\"" install_location in
   let _ = Sys.command chmod_cmd in
-  
+
+  (* Remove extended attributes that may cause macOS to block execution *)
+  let xattr_cmd = sprintf "sudo xattr -c \"%s\" 2>/dev/null || true" install_location in
+  let _ = Sys.command xattr_cmd in
+
+  (* Re-sign the binary with adhoc signature (required after sudo cp) *)
+  let codesign_cmd = sprintf "sudo codesign -s - -f \"%s\" 2>/dev/null || true" install_location in
+  let _ = Sys.command codesign_cmd in
+
   printf "✓ Successfully installed j to %s\n" install_location;
   print_endline "You can now use 'j' from anywhere!"
 
