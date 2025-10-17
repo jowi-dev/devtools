@@ -7,7 +7,6 @@ require('actions.copy_to_clipboard')
 require('actions.build_environment')
 require('actions.send_to_note')
 
-
 -- Leader Key
 vim.g.mapleader=","
 
@@ -17,28 +16,55 @@ local map = vim.keymap.set
 map('n',  '<leader>m', ':let @+=expand("%")<CR>',{noremap=true})
 map('v',  '<leader>k', '"*y<CR>',{noremap=true})
 
--- Git Keybinds -- PREFIX g
-map('n',  '<leader>gs', ':Telescope git_status<CR>',{noremap=true})
-map('n',  '<leader>gb', ':Telescope git_branches<CR>',{noremap=true})
-map('n',  '<leader>gc', ':lua GitConflicts({})<CR>',{noremap=true})
-map('n',  '<leader>gd', ':lua GitDiffs({})<CR>',{noremap=true})
--- can't be C-d because that's page down natively
-map('n',  '<leader>d',      ':Telescope diagnostics<CR>', {noremap=true})
-
 -- Search and FileNavigation Related keybinds
-map('n',  '<C-p>',      ':Telescope find_files<CR>',{noremap=true})
-map('n',  '<C-f>',      ':Telescope live_grep<CR>',{noremap=true})
-map('n',  '<leader>c',  ':b#<bar>bd#<CR>',{noremap=true})
 map('n',  '<leader>q',  ':bprev<CR>',{noremap=true})
 map('n',  '<leader>p',  ':bnext<CR>',{noremap=true})
-map('n',  '<leader>l',  ':NERDTreeToggle<CR>',{noremap=true})
 map('n', '<leader><space>', ':nohlsearch<CR>', {noremap=true})
 
 -- LuaSnip Keybinds -- PREFIX s
-map({'i', 's'}, '<leader>sx', function() require('luasnip').expand() end, {noremap=true})
-map({'i', 's'}, '<leader>sf', function() require('luasnip').jump(1) end, {noremap=true})
-map({'i', 's'}, '<leader>sb', function() require('luasnip').jump(-1) end, {noremap=true})
-map('n', '<leader>sd', function() require('luasnip.loaders').edit_snippet_files() end, {noremap=true})
+map({'i', 's'}, '<leader>x', function() require('luasnip').expand() end, {noremap=true})
+map({'i', 's'}, '<leader>n', function() require('luasnip').jump(1) end, {noremap=true})
+map({'i', 's'}, '<leader>b', function() require('luasnip').jump(-1) end, {noremap=true})
+
+-- Enhanced snippet editing: creates file if it doesn't exist
+map('n', '<leader>sd', function()
+  local ft = vim.bo.filetype
+  if ft == '' then ft = 'all' end  -- Use 'all' for no filetype
+
+  local snippet_dir = vim.env.DEVTOOLS_ROOT .. "/snippets"
+  local snippet_file = snippet_dir .. "/" .. ft .. ".lua"
+
+  -- Create snippet file if it doesn't exist
+  if vim.fn.filereadable(snippet_file) == 0 then
+    -- Ensure directory exists
+    vim.fn.mkdir(snippet_dir, "p")
+
+    -- Create file with template
+    local template = [[local ls = require("luasnip")
+local s = ls.snippet
+local t = ls.text_node
+local i = ls.insert_node
+
+return {
+  -- Example snippet
+  -- s("trigger", {
+  --   t("text here"),
+  --   i(1, "placeholder"),
+  -- }),
+}
+]]
+
+    local file = io.open(snippet_file, "w")
+    if file then
+      file:write(template)
+      file:close()
+      print("Created new snippet file: " .. snippet_file)
+    end
+  end
+
+  -- Open the snippet file directly
+  vim.cmd("edit " .. snippet_file)
+end, {noremap=true})
 
 
 -- Nvim Config Keybinds -- PREFIX v

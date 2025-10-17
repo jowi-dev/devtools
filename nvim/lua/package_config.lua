@@ -6,4 +6,6 @@ require("nvim-treesitter.configs").setup({
 })
 
 -- LuaSnip configuration
-require("luasnip.loaders.from_lua").load({paths = vim.fn.stdpath("config") .. "/lua/snippets/"})
+-- Load snippets from devtools repo (requires DEVTOOLS_ROOT env var)
+local snippet_path = vim.env.DEVTOOLS_ROOT .. "/snippets/"
+require("luasnip.loaders.from_lua").load({paths = snippet_path})
