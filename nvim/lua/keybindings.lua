@@ -78,7 +78,7 @@ map('n', '<leader>t',   ':lua vim.lsp.codelens.run()<CR>',{noremap=true})
 -- Ctags Keybinds
 map('n', '<C-]>', '<C-]>', {noremap=true})  -- Jump to tag under cursor
 map('n', '<C-t>', '<C-t>', {noremap=true})  -- Jump back from tag
-map('n', '<leader>r', ':!ctags -R .<CR>', {noremap=true})  -- Regenerate tags
+map('n', '<leader>r', ':!ctags -R . 2>/dev/null<CR>', {noremap=true})  -- Regenerate tags (silenced)
 
 -- Formatting Keybinds -- PREFIX f
 map('n', '<leader>f',   ':lua Format()<CR>',{noremap=true})
