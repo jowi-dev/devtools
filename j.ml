@@ -103,20 +103,11 @@ let format_time timestamp =
     tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 
 let copy_recursive src dest =
-  let cmd = sprintf "cp -r \"%s\" \"%s\"" src dest in
+  let cmd = sprintf "rsync -a \"%s/\" \"%s\"" src dest in
   let exit_code = Sys.command cmd in
   if exit_code <> 0 then
-    failwith (sprintf "Failed to copy %s to %s" src dest)
+    failwith (sprintf "Failed to sync %s to %s" src dest)
 
-let backup_if_exists path =
-  if file_exists path then (
-    let backup_path = path ^ ".backup" in
-    printf "Backing up existing config to %s\n" backup_path;
-    copy_recursive path backup_path;
-    let rm_cmd = sprintf "rm -rf \"%s\"" path in
-    let _ = Sys.command rm_cmd in
-    ()
-  )
 
 let ensure_parent_dir path =
   let parent = Filename.dirname path in
@@ -902,7 +893,6 @@ let export_all_packages () =
     ) else (
       try
         ensure_parent_dir sys_path;
-        backup_if_exists sys_path;
         copy_recursive repo_full_path sys_path;
         printf "  ✓ Exported %s successfully\n" name
       with
@@ -941,7 +931,6 @@ let sync_config force_flag action package_name =
       );
 
       ensure_parent_dir sys_path;
-      backup_if_exists sys_path;
       copy_recursive repo_full_path sys_path;
       printf "✓ Exported %s successfully\n" package_name;
 
@@ -984,7 +973,6 @@ let sync_config force_flag action package_name =
         )
       );
 
-      backup_if_exists repo_full_path;
       copy_recursive sys_path repo_full_path;
       printf "✓ Imported %s successfully\n" package_name
 
