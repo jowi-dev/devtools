@@ -6,7 +6,7 @@ let packages = [
   ("nvim", "nvim", Filename.concat (Sys.getenv "HOME") ".config/nvim");
   ("starship", "starship.toml", Filename.concat (Sys.getenv "HOME") ".config/starship.toml");
   ("fish", "fish", Filename.concat (Sys.getenv "HOME") ".config/fish");
-  ("tmux", "tmux.conf", Filename.concat (Sys.getenv "HOME") ".config/tmux/tmux.conf");
+  ("tmux", ".tmux.conf", Filename.concat (Sys.getenv "HOME") ".tmux.conf");
   ("git", "git-config", Filename.concat (Sys.getenv "HOME") ".config/git/config");
 ]
 
@@ -103,10 +103,17 @@ let format_time timestamp =
     tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 
 let copy_recursive src dest =
-  let cmd = sprintf "rsync -a \"%s/\" \"%s\"" src dest in
-  let exit_code = Sys.command cmd in
-  if exit_code <> 0 then
-    failwith (sprintf "Failed to sync %s to %s" src dest)
+  try
+    let stat = Unix.stat src in
+    let cmd = match stat.Unix.st_kind with
+      | Unix.S_DIR -> sprintf "rsync -a \"%s/\" \"%s\"" src dest
+      | _ -> sprintf "cp \"%s\" \"%s\"" src dest
+    in
+    let exit_code = Sys.command cmd in
+    if exit_code <> 0 then
+      failwith (sprintf "Failed to sync %s to %s" src dest)
+  with Unix.Unix_error _ ->
+    failwith (sprintf "Failed to stat source: %s" src)
 
 
 let ensure_parent_dir path =

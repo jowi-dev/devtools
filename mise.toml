@@ -1,9 +1,18 @@
 [tools]
 erlang = "latest"
 elixir = "latest"
-#expert = "latest"
-elixir-ls = "latest"
+#elixir-ls = "latest"
 ocaml = "latest"
+
+# Expert - Official Elixir Language Server
+[tools."http:expert"]
+version = "nightly"
+
+[tools."http:expert".platforms]
+macos-arm64 = { url = "https://github.com/elixir-lang/expert/releases/download/nightly/expert_darwin_arm64" }
+macos-x64 = { url = "https://github.com/elixir-lang/expert/releases/download/nightly/expert_darwin_amd64" }
+linux-x64 = { url = "https://github.com/elixir-lang/expert/releases/download/nightly/expert_linux_amd64" }
+linux-arm64 = { url = "https://github.com/elixir-lang/expert/releases/download/nightly/expert_linux_arm64" }
 
 [tasks.demos]
 description = "Generate GIFs from all VHS tapes in demos/"
