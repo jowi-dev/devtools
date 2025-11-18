@@ -7,6 +7,7 @@ let packages = [
   ("starship", "starship.toml", Filename.concat (Sys.getenv "HOME") ".config/starship.toml");
   ("fish", "fish", Filename.concat (Sys.getenv "HOME") ".config/fish");
   ("tmux", ".tmux.conf", Filename.concat (Sys.getenv "HOME") ".tmux.conf");
+  ("ghostty", "ghostty-config", Filename.concat (Sys.getenv "HOME") ".config/ghostty/config");
   ("git", "git-config", Filename.concat (Sys.getenv "HOME") ".config/git/config");
 ]
 
@@ -104,8 +105,26 @@ let format_time timestamp =
 
 let copy_recursive src dest =
   try
-    let stat = Unix.stat src in
-    let cmd = match stat.Unix.st_kind with
+    let src_stat = Unix.stat src in
+
+    (* Check if dest exists and has conflicting type *)
+    (try
+      let dest_stat = Unix.stat dest in
+      let types_conflict = match (src_stat.Unix.st_kind, dest_stat.Unix.st_kind) with
+        | (Unix.S_DIR, Unix.S_DIR) -> false
+        | (Unix.S_DIR, _) -> true  (* src is dir, dest is file *)
+        | (_, Unix.S_DIR) -> true  (* src is file, dest is dir *)
+        | _ -> false               (* both are files *)
+      in
+      if types_conflict then (
+        printf "Removing conflicting destination: %s\n" dest;
+        let rm_cmd = sprintf "rm -rf \"%s\"" dest in
+        let _ = Sys.command rm_cmd in
+        ()
+      )
+    with Unix.Unix_error _ -> ()); (* dest doesn't exist, continue *)
+
+    let cmd = match src_stat.Unix.st_kind with
       | Unix.S_DIR -> sprintf "rsync -a \"%s/\" \"%s\"" src dest
       | _ -> sprintf "cp \"%s\" \"%s\"" src dest
     in

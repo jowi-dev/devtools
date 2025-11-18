@@ -1,0 +1,99 @@
+# Ghostty Configuration
+# Matched to tmux theme aesthetic
+
+# Font Configuration
+font-family = "JetBrains Mono"
+font-size = 14
+
+# Window Configuration
+window-padding-x = 4
+window-padding-y = 4
+window-decoration = true
+
+# Allow dragging window by clicking anywhere (macOS)
+macos-non-native-fullscreen = true
+
+# Theme Configuration - Matches tmux status bar colors
+# tmux: bg=colour235, fg=colour136, current=colour166, inactive=colour244
+
+# Background/Foreground
+background = #262626
+foreground = #af875f
+
+# Cursor
+cursor-color = #d75f00
+cursor-style = block
+
+# Selection
+selection-background = #af875f
+selection-foreground = #262626
+
+# Colors (16-color palette matching tmux aesthetic)
+# Black
+palette = 0=#262626
+palette = 8=#808080
+
+# Red
+palette = 1=#d75f00
+palette = 9=#ff8700
+
+# Green
+palette = 2=#5f8700
+palette = 10=#87af00
+
+# Yellow
+palette = 3=#af875f
+palette = 11=#d7af5f
+
+# Blue
+palette = 4=#5f87af
+palette = 12=#87afd7
+
+# Magenta
+palette = 5=#875f87
+palette = 13=#af87af
+
+# Cyan
+palette = 6=#5f8787
+palette = 14=#87afaf
+
+# White
+palette = 7=#d0d0d0
+palette = 15=#ffffff
+
+# Tab Bar (similar to tmux status bar)
+window-theme = dark
+
+# macOS Icon - warm/retro style to match theme aesthetic
+macos-icon = chalkboard
+macos-icon-ghost-color = #d75f00
+macos-icon-screen-color = #262626
+
+# Shell Integration
+shell-integration = fish
+shell-integration-features = cursor,sudo,title
+
+# Performance
+resize-overlay = never
+
+# Keybindings
+# Use Cmd+number for tabs (like tmux windows)
+keybind = cmd+1=goto_tab:1
+keybind = cmd+2=goto_tab:2
+keybind = cmd+3=goto_tab:3
+keybind = cmd+4=goto_tab:4
+keybind = cmd+5=goto_tab:5
+keybind = cmd+6=goto_tab:6
+keybind = cmd+7=goto_tab:7
+keybind = cmd+8=goto_tab:8
+keybind = cmd+9=goto_tab:9
+
+# Split panes (similar to tmux)
+keybind = cmd+d=new_split:right
+keybind = cmd+shift+d=new_split:down
+
+# Navigate splits
+keybind = cmd+h=goto_split:left
+keybind = cmd+j=goto_split:bottom
+keybind = cmd+k=goto_split:top
+keybind = cmd+l=goto_split:right

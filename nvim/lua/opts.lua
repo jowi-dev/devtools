@@ -1,6 +1,6 @@
 -- Colors and Themes
 require('theme_toggle')
-require('theme_dark').setup()
+require('theme_tmux').setup()
 vim.opt.background = 'dark'
 local cmd = vim.cmd
 cmd('syntax on')
