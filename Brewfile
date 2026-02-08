@@ -1,6 +1,7 @@
 
 # System/Dev Tooling
 brew "git"
+brew "gh"
 brew "neovim" 
 brew "ripgrep"
 brew "fzf"

@@ -25,6 +25,8 @@ let daily_path () = Filename.concat (logs_root ()) "dailies"
 let til_path () = Filename.concat (logs_root ()) "til"
 let public_logs_root () = Filename.concat repo_root "public_logs"
 let public_til_path () = Filename.concat (public_logs_root ()) "til"
+let nixos_configs_root () = Filename.concat repo_root "nixos-configs"
+let remotes_config_path () = Filename.concat (nixos_configs_root ()) ".remotes"
 
 let show_help () =
   print_endline "j - Jowi's dev environment sync tool";
@@ -35,6 +37,7 @@ let show_help () =
   print_endline "       j project <search> [pattern]";
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
   print_endline "       j til <topic|list|search> [pattern]";
+  print_endline "       j remote <add|list|pull|deploy|ssh> [args]";
   print_endline "";
   print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
@@ -71,6 +74,13 @@ let show_help () =
   print_endline "  til list [--public]        List all TIL topics (add --public for published)";
   print_endline "  til search <pattern>       Search across all TILs";
   print_endline "  til export <topic>         Polish and export TIL to public repo";
+  print_endline "";
+  print_endline "Remote NixOS Commands:";
+  print_endline "  remote add <name> <host> [user]  Register a remote NixOS machine";
+  print_endline "  remote list                      Show configured remotes";
+  print_endline "  remote pull <name>               Pull config from remote to local repo";
+  print_endline "  remote deploy <name>             Deploy config to remote and rebuild";
+  print_endline "  remote ssh <name>                SSH into remote machine";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -505,6 +515,192 @@ let project_plan topic =
     flush stdout;
     let _ = Sys.command cmd in
     ()
+
+(* Remote NixOS management functions *)
+type remote = {
+  name: string;
+  host: string;
+  user: string;
+}
+
+let ensure_nixos_configs_dir () =
+  let dir = nixos_configs_root () in
+  if not (file_exists dir) then (
+    let cmd = sprintf "mkdir -p \"%s\"" dir in
+    let _ = Sys.command cmd in
+    ()
+  )
+
+let read_remotes () =
+  let path = remotes_config_path () in
+  if not (file_exists path) then []
+  else
+    let ic = open_in path in
+    let rec read_lines acc =
+      try
+        let line = input_line ic in
+        let parts = String.split_on_char ',' line in
+        match parts with
+        | [name; host; user] ->
+          read_lines ({ name; host; user } :: acc)
+        | _ -> read_lines acc
+      with End_of_file ->
+        close_in ic;
+        List.rev acc
+    in
+    read_lines []
+
+let write_remotes remotes =
+  ensure_nixos_configs_dir ();
+  let path = remotes_config_path () in
+  let oc = open_out path in
+  List.iter (fun r ->
+    fprintf oc "%s,%s,%s\n" r.name r.host r.user
+  ) remotes;
+  close_out oc
+
+let find_remote name =
+  let remotes = read_remotes () in
+  List.find_opt (fun r -> r.name = name) remotes
+
+let remote_add name host user =
+  let remotes = read_remotes () in
+  (* Check if remote already exists *)
+  (match List.find_opt (fun r -> r.name = name) remotes with
+  | Some _ ->
+    printf "Error: Remote '%s' already exists\n" name;
+    exit 1
+  | None -> ());
+
+  let new_remote = { name; host; user } in
+  let updated_remotes = new_remote :: remotes in
+  write_remotes updated_remotes;
+  printf "✓ Added remote '%s' (%s@%s)\n" name user host
+
+let remote_list () =
+  let remotes = read_remotes () in
+  if List.length remotes = 0 then
+    print_endline "No remotes configured. Use 'j remote add <name> <host> [user]' to add one."
+  else begin
+    print_endline "Configured remotes:";
+    List.iter (fun r ->
+      printf "  %s: %s@%s\n" r.name r.user r.host
+    ) remotes
+  end
+
+let remote_pull name =
+  match find_remote name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    ensure_nixos_configs_dir ();
+    let machine_dir = Filename.concat (nixos_configs_root ()) ("machines/" ^ name) in
+    let cmd = sprintf "mkdir -p \"%s\"" machine_dir in
+    let _ = Sys.command cmd in
+
+    printf "Pulling NixOS configuration from %s@%s...\n" remote.user remote.host;
+
+    (* Pull configuration.nix *)
+    let scp_config = sprintf "scp %s@%s:/etc/nixos/configuration.nix \"%s/configuration.nix\""
+      remote.user remote.host machine_dir in
+    printf "Running: %s\n" scp_config;
+    let result = Sys.command scp_config in
+    if result <> 0 then (
+      printf "Error: Failed to pull configuration.nix\n";
+      exit 1
+    );
+
+    (* Pull hardware-configuration.nix *)
+    let scp_hardware = sprintf "scp %s@%s:/etc/nixos/hardware-configuration.nix \"%s/hardware-configuration.nix\""
+      remote.user remote.host machine_dir in
+    printf "Running: %s\n" scp_hardware;
+    let result = Sys.command scp_hardware in
+    if result <> 0 then (
+      printf "Warning: Failed to pull hardware-configuration.nix (may not exist)\n"
+    );
+
+    printf "✓ Successfully pulled configuration to %s\n" machine_dir;
+    printf "\nNext steps:\n";
+    printf "  1. Review the configuration: nvim %s/configuration.nix\n" machine_dir;
+    printf "  2. Commit to git: cd %s && git add . && git commit -m 'Initial config for %s'\n"
+      (nixos_configs_root ()) name;
+    printf "  3. Deploy changes: j remote deploy %s\n" name
+
+let remote_deploy name =
+  match find_remote name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    let machine_dir = Filename.concat (nixos_configs_root ()) ("machines/" ^ name) in
+    let config_file = Filename.concat machine_dir "configuration.nix" in
+
+    if not (file_exists config_file) then (
+      printf "Error: Configuration not found at %s\n" config_file;
+      printf "Run 'j remote pull %s' first to fetch the configuration.\n" name;
+      exit 1
+    );
+
+    printf "Deploying configuration to %s@%s...\n" remote.user remote.host;
+
+    (* Clone/update nixos-configs from GitHub *)
+    let flake_path = "/tmp/nixos-configs" in
+    let clone_cmd = sprintf
+      "ssh %s@%s 'if [ -d %s ]; then cd %s && git pull; else git clone git@github.com:jowi-dev/nixos-configs.git %s; fi'"
+      remote.user remote.host flake_path flake_path flake_path in
+    printf "Cloning/updating from GitHub: %s\n" clone_cmd;
+    let result = Sys.command clone_cmd in
+    if result <> 0 then (
+      printf "Error: Failed to clone/update configuration from GitHub\n";
+      exit 1
+    );
+
+    (* Deploy using flake *)
+    let rebuild_cmd = sprintf
+      "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s'"
+      remote.user remote.host flake_path name in
+    printf "\nRebuilding NixOS with flake: %s\n" rebuild_cmd;
+    printf "This may take a few minutes (first build will download and compile Rust dependencies)...\n";
+    flush stdout;
+    let result = Sys.command rebuild_cmd in
+    if result <> 0 then (
+      printf "Error: NixOS rebuild failed\n";
+      exit 1
+    );
+
+    (* Send a message to the console TTY *)
+    let notify_cmd = sprintf
+      "ssh %s@%s 'echo -e \"\\n\\n=== DEPLOYMENT SUCCESSFUL ===\\nHello from Alien!\\nSystem rebuilt via j remote deploy\\n\" | sudo tee /dev/tty1 > /dev/null'"
+      remote.user remote.host in
+    let _ = Sys.command notify_cmd in
+
+    printf "✓ Successfully deployed and rebuilt %s\n" name
+
+let remote_ssh name =
+  match find_remote name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    let ssh_cmd = sprintf "ssh %s@%s" remote.user remote.host in
+    printf "Connecting to %s@%s...\n" remote.user remote.host;
+    let result = Sys.command ssh_cmd in
+    exit result
+
+let handle_remote_command args =
+  match args with
+  | ["add"; name; host] -> remote_add name host "root"
+  | ["add"; name; host; user] -> remote_add name host user
+  | ["list"] -> remote_list ()
+  | ["pull"; name] -> remote_pull name
+  | ["deploy"; name] -> remote_deploy name
+  | ["ssh"; name] -> remote_ssh name
+  | _ ->
+    print_endline "Error: Invalid remote command";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh> [args]";
+    show_help ();
+    exit 1
 
 let handle_project_command args =
   match args with
@@ -1040,6 +1236,7 @@ let () =
   | "project" :: project_args -> handle_project_command project_args
   | "plan" :: plan_args -> handle_plan_command plan_args
   | "til" :: til_args -> handle_til_command til_args
+  | "remote" :: remote_args -> handle_remote_command remote_args
   | [action; package] -> sync_config force_flag action package
   | _ ->
     print_endline "Error: Invalid arguments";
