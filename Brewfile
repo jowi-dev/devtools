@@ -25,6 +25,7 @@ brew "httpie"
 brew "hurl"
 brew "chafa"
 brew "flyctl"
+brew "gum"
 
 
 # Applications

@@ -81,6 +81,7 @@ let show_help () =
   print_endline "  remote pull <name>               Pull config from remote to local repo";
   print_endline "  remote deploy <name>             Deploy config to remote and rebuild";
   print_endline "  remote ssh <name>                SSH into remote machine";
+  print_endline "  remote flash                     Build and flash installer ISO to USB";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -688,6 +689,86 @@ let remote_ssh name =
     let result = Sys.command ssh_cmd in
     exit result
 
+let remote_flash () =
+  let configs_root = nixos_configs_root () in
+
+  (* Check if nixos-configs exists *)
+  if not (file_exists configs_root) then (
+    printf "Error: nixos-configs not found at %s\n" configs_root;
+    printf "Clone it first: git clone git@github.com:jowi-dev/nixos-configs.git %s\n" configs_root;
+    exit 1
+  );
+
+  (* Use gum for nice UI *)
+  printf "🔨 Building NixOS installer ISO...\n";
+  let build_cmd = sprintf "cd %s && nix build .#installer-iso" configs_root in
+  let result = Sys.command build_cmd in
+  if result <> 0 then (
+    printf "Error: Failed to build ISO\n";
+    exit 1
+  );
+
+  (* Find the ISO *)
+  let iso_path = sprintf "%s/result/iso" configs_root in
+  let find_iso = sprintf "ls %s/*.iso 2>/dev/null | head -1" iso_path in
+  let iso_file =
+    let ic = Unix.open_process_in find_iso in
+    let line = try input_line ic with End_of_file -> "" in
+    let _ = Unix.close_process_in ic in
+    line
+  in
+
+  if iso_file = "" then (
+    printf "Error: ISO not found in %s\n" iso_path;
+    exit 1
+  );
+
+  printf "\n✓ ISO built: %s\n\n" iso_file;
+
+  (* List available USB drives *)
+  printf "📀 Available USB drives:\n";
+  let _ = Sys.command "diskutil list | grep -E '(external|removable)' -B 5" in
+  printf "\n";
+
+  (* Prompt for USB device using gum *)
+  printf "Enter USB device (e.g., /dev/disk4): ";
+  flush stdout;
+  let device = read_line () in
+
+  (* Confirm *)
+  let confirm_msg = sprintf "⚠️  This will ERASE ALL DATA on %s. Continue?" device in
+  let confirm_cmd = sprintf "gum confirm \"%s\"" confirm_msg in
+  let result = Sys.command confirm_cmd in
+  if result <> 0 then (
+    printf "Cancelled.\n";
+    exit 0
+  );
+
+  (* Unmount the device first *)
+  printf "\n🔓 Unmounting %s...\n" device;
+  let unmount_cmd = sprintf "diskutil unmountDisk %s" device in
+  let _ = Sys.command unmount_cmd in
+
+  (* Flash the ISO *)
+  printf "\n💾 Flashing ISO to %s...\n" device;
+  printf "This may take several minutes...\n\n";
+  let flash_cmd = sprintf "sudo dd if=%s of=%s bs=4m status=progress" iso_file device in
+  let result = Sys.command flash_cmd in
+  if result <> 0 then (
+    printf "Error: Failed to flash ISO\n";
+    exit 1
+  );
+
+  (* Eject *)
+  printf "\n🎉 Ejecting USB drive...\n";
+  let eject_cmd = sprintf "diskutil eject %s" device in
+  let _ = Sys.command eject_cmd in
+
+  printf "\n✓ USB drive ready! You can now:\n";
+  printf "  1. Boot from this USB on any machine\n";
+  printf "  2. It will auto-connect to WiFi and enable SSH\n";
+  printf "  3. Deploy with: j remote add <name> <ip> root && j remote deploy <name>\n"
+
 let handle_remote_command args =
   match args with
   | ["add"; name; host] -> remote_add name host "root"
@@ -696,6 +777,7 @@ let handle_remote_command args =
   | ["pull"; name] -> remote_pull name
   | ["deploy"; name] -> remote_deploy name
   | ["ssh"; name] -> remote_ssh name
+  | ["flash"] -> remote_flash ()
   | _ ->
     print_endline "Error: Invalid remote command";
     print_endline "Usage: j remote <add|list|pull|deploy|ssh> [args]";
