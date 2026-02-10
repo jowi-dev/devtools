@@ -664,7 +664,7 @@ let remote_deploy name =
 
     (* Deploy using flake *)
     let rebuild_cmd = sprintf
-      "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s'"
+      "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
       remote.user remote.host flake_path name in
     printf "\nRebuilding NixOS with flake: %s\n" rebuild_cmd;
     printf "This may take a few minutes (first build will download and compile Rust dependencies)...\n";
