@@ -83,7 +83,7 @@ let show_help () =
   print_endline "  remote pull <name>               Pull config from remote to local repo";
   print_endline "  remote deploy <name>             Deploy config to remote and rebuild";
   print_endline "  remote ssh <name>                SSH into remote machine";
-  print_endline "  remote flash                     Build and flash installer ISO to USB";
+  print_endline "  remote flash [--builder name]    Build and flash installer ISO to USB";
   print_endline "  remote pull-key <name>           Pull SSH keys from remote for secrets.nix";
   print_endline "  remote discover                  Scan for mDNS-discoverable devices on LAN";
   print_endline "  remote setup <build> [--name n]  Deploy build config to init machine and register remote";
@@ -662,6 +662,18 @@ let remote_deploy name =
       exit 1
     );
 
+    (* Copy github-key to remote so flake can access it *)
+    let github_key_path = Filename.concat (nixos_configs_root ()) "github-key" in
+    if file_exists github_key_path then (
+      let scp_cmd = sprintf "scp %s %s@%s:%s/"
+        github_key_path remote.user remote.host flake_path in
+      printf "Copying GitHub key to remote...\n";
+      let _ = Sys.command scp_cmd in
+      let stage_cmd = sprintf "ssh %s@%s 'cd %s && git add -f github-key'"
+        remote.user remote.host flake_path in
+      let _ = Sys.command stage_cmd in ()
+    );
+
     (* Deploy using flake *)
     let rebuild_cmd = sprintf
       "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
@@ -751,21 +763,20 @@ let remote_pull_key name =
 
     printf "GitHub public key: %s\n" github_pubkey;
 
-    (* Write secrets.nix *)
-    let secrets_path = Filename.concat configs_root "secrets.nix" in
-    let oc = open_out secrets_path in
+    (* Write identity.nix *)
+    let identity_path = Filename.concat configs_root "identity.nix" in
+    let oc = open_out identity_path in
     fprintf oc "{\n";
     fprintf oc "  authorizedKey = \"%s\";\n" local_pubkey;
-    fprintf oc "  githubPrivateKeyFile = ./github-key;\n";
     fprintf oc "  githubPublicKey = \"%s\";\n" github_pubkey;
     fprintf oc "}\n";
     close_out oc;
 
-    printf "✓ Generated %s\n" secrets_path;
+    printf "✓ Generated %s\n" identity_path;
     printf "✓ Saved GitHub private key to %s\n" github_key_dest;
-    printf "\nThese files are gitignored and will be baked into the ISO at build time.\n"
+    printf "\nidentity.nix should be committed. github-key is gitignored and staged at build time.\n"
 
-let remote_flash () =
+let remote_flash builder_opt =
   let configs_root = nixos_configs_root () in
 
   (* Check if nixos-configs exists *)
@@ -775,17 +786,51 @@ let remote_flash () =
     exit 1
   );
 
-  (* Check for secrets.nix *)
-  let secrets_path = Filename.concat configs_root "secrets.nix" in
-  if not (file_exists secrets_path) then (
-    printf "⚠️  Warning: %s not found\n" secrets_path;
-    printf "   The ISO will be built without SSH keys or GitHub credentials.\n";
-    printf "   Generate secrets with: j remote pull-key <name>\n\n"
+  (* Check for github-key *)
+  let github_key_path = Filename.concat configs_root "github-key" in
+  let has_github_key = file_exists github_key_path in
+  if not has_github_key then (
+    printf "⚠️  Warning: github-key not found in %s\n" configs_root;
+    printf "   The ISO will be built without GitHub credentials.\n";
+    printf "   Generate with: j remote pull-key <name>\n\n"
+  );
+
+  (* Stage github-key so flake can see it *)
+  if has_github_key then (
+    let stage_cmd = sprintf "cd %s && git add -f github-key" configs_root in
+    let _ = Sys.command stage_cmd in ()
   );
 
   printf "🔨 Building NixOS installer ISO...\n";
-  let build_cmd = sprintf "cd %s && nix build .#installer-iso" configs_root in
+  let builder_args = match builder_opt with
+    | None -> ""
+    | Some name ->
+      let remote = match find_remote name with
+        | Some r -> r
+        | None ->
+          printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+          exit 1
+      in
+      let home = Sys.getenv "HOME" in
+      let key_path = sprintf "%s/.ssh/%s_builder_ed25519" home name in
+      if not (file_exists key_path) then (
+        printf "Error: Builder SSH key not found at %s\n" key_path;
+        printf "Generate one with: ssh-keygen -t ed25519 -f %s\n" key_path;
+        exit 1
+      );
+      printf "Using remote builder: %s@%s\n" remote.user remote.host;
+      sprintf " -j0 --builders 'ssh-ng://%s@%s x86_64-linux %s 4' --builders-use-substitutes"
+        remote.user remote.host key_path
+  in
+  let build_cmd = sprintf "cd %s && nix build .#packages.x86_64-linux.installer-iso%s" configs_root builder_args in
   let result = Sys.command build_cmd in
+
+  (* Unstage github-key after build *)
+  if has_github_key then (
+    let unstage_cmd = sprintf "cd %s && git reset github-key 2>/dev/null" configs_root in
+    let _ = Sys.command unstage_cmd in ()
+  );
+
   if result <> 0 then (
     printf "Error: Failed to build ISO\n";
     exit 1
@@ -897,6 +942,18 @@ let remote_setup build_name remote_name =
     exit 1
   );
 
+  (* Copy github-key to remote so flake can access it *)
+  let github_key_path = Filename.concat (nixos_configs_root ()) "github-key" in
+  if file_exists github_key_path then (
+    let scp_cmd = sprintf "scp %s %s@%s:%s/"
+      github_key_path user init_host flake_path in
+    printf "Copying GitHub key to remote...\n";
+    let _ = Sys.command scp_cmd in
+    let stage_cmd = sprintf "ssh %s@%s 'cd %s && git add -f github-key'"
+      user init_host flake_path in
+    let _ = Sys.command stage_cmd in ()
+  );
+
   (* Deploy the build config *)
   let rebuild_cmd = sprintf
     "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
@@ -983,7 +1040,8 @@ let handle_remote_command args =
   | ["pull"; name] -> remote_pull name
   | ["deploy"; name] -> remote_deploy name
   | ["ssh"; name] -> remote_ssh name
-  | ["flash"] -> remote_flash ()
+  | ["flash"] -> remote_flash None
+  | ["flash"; "--builder"; name] -> remote_flash (Some name)
   | ["pull-key"; name] -> remote_pull_key name
   | ["discover"] -> remote_discover ()
   | ["setup"; build] -> remote_setup build build
