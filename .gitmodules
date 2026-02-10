@@ -1,15 +1,19 @@
 [submodule "nvim/pack/plugins/start/nvim-lspconfig"]
 	path = nvim/pack/plugins/start/nvim-lspconfig
 	url = git@github.com:neovim/nvim-lspconfig.git
+	ignore = dirty
 [submodule "nvim/pack/plugins/start/nvim-treesitter"]
 	path = nvim/pack/plugins/start/nvim-treesitter
 	url = https://github.com/nvim-treesitter/nvim-treesitter.git
+	ignore = dirty
 [submodule "nvim/pack/plugins/start/LuaSnip"]
 	path = nvim/pack/plugins/start/LuaSnip
 	url = https://github.com/L3MON4D3/LuaSnip.git
+	ignore = dirty
 [submodule "nvim/pack/plugins/start/nvim-tag-stack"]
 	path = nvim/pack/plugins/start/nvim-tag-stack
 	url = https://github.com/jowi-dev/nvim-context-panel.git
+	ignore = dirty
 [submodule "logs"]
 	path = logs
 	url = git@github.com:jowi-dev/logs.git
