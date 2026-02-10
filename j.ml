@@ -1173,24 +1173,52 @@ let config_save message_opt =
 
   printf "Saving config to remote repository...\n";
 
-  (* Check for changes in main repo *)
-  let status_cmd = sprintf "cd \"%s\" && git status --short" repo_root in
-  printf "\n=== Main repository status ===\n";
-  let _ = Sys.command status_cmd in
+  (* Commit and push owned submodules first, so main repo records updated pointers *)
+  let owned_submodules = ["logs"; "public_logs"] in
+  List.iter (fun sub ->
+    let sub_path = Filename.concat repo_root sub in
+    if file_exists sub_path then (
+      printf "\n=== %s ===\n" sub;
 
-  (* Add all changes in main repo *)
-  printf "\nAdding changes...\n";
+      (* Ensure we're on main *)
+      let checkout_cmd = sprintf "cd \"%s\" && git checkout main 2>/dev/null || git checkout -b main" sub_path in
+      let _ = Sys.command checkout_cmd in
+
+      (* Check for changes *)
+      let diff_cmd = sprintf "cd \"%s\" && git status --short" sub_path in
+      let ic = Unix.open_process_in diff_cmd in
+      let has_output = (try let _ = input_line ic in true with End_of_file -> false) in
+      let _ = Unix.close_process_in ic in
+
+      if has_output then (
+        let add_cmd = sprintf "cd \"%s\" && git add ." sub_path in
+        let _ = Sys.command add_cmd in
+        let commit_cmd = sprintf "cd \"%s\" && git commit -m \"%s\"" sub_path commit_msg in
+        let _ = Sys.command commit_cmd in
+        ()
+      );
+
+      (* Push *)
+      let push_cmd = sprintf "cd \"%s\" && git push -u origin main" sub_path in
+      let exit_code = Sys.command push_cmd in
+      if exit_code <> 0 then
+        printf "Warning: Failed to push %s\n" sub
+      else
+        printf "✓ Pushed %s\n" sub
+    )
+  ) owned_submodules;
+
+  (* Now commit and push main repo with updated submodule pointers *)
+  printf "\n=== Main repository ===\n";
   let add_cmd = sprintf "cd \"%s\" && git add ." repo_root in
   let _ = Sys.command add_cmd in
 
-  (* Check if there are changes to commit *)
   let diff_cmd = sprintf "cd \"%s\" && git diff --cached --quiet" repo_root in
   let has_changes = Sys.command diff_cmd <> 0 in
 
   if not has_changes then (
     printf "No changes to commit in main repository\n"
   ) else (
-    (* Commit changes *)
     let commit_cmd = sprintf "cd \"%s\" && git commit -m \"%s\"" repo_root commit_msg in
     let exit_code = Sys.command commit_cmd in
     if exit_code <> 0 then (
@@ -1200,19 +1228,12 @@ let config_save message_opt =
     printf "✓ Committed changes\n"
   );
 
-  (* Push to remote *)
-  printf "\nPushing to remote...\n";
   let push_cmd = sprintf "cd \"%s\" && git push" repo_root in
   let exit_code = Sys.command push_cmd in
   if exit_code <> 0 then (
     printf "Error: Failed to push to remote\n";
     exit 1
   );
-
-  (* Push submodules that have commits *)
-  printf "\n=== Pushing submodules ===\n";
-  let submodule_push_cmd = sprintf "cd \"%s\" && git submodule foreach 'git push || true'" repo_root in
-  let _ = Sys.command submodule_push_cmd in
 
   printf "\n✓ Successfully saved config to remote\n"
 
