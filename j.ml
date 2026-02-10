@@ -25,7 +25,9 @@ let daily_path () = Filename.concat (logs_root ()) "dailies"
 let til_path () = Filename.concat (logs_root ()) "til"
 let public_logs_root () = Filename.concat repo_root "public_logs"
 let public_til_path () = Filename.concat (public_logs_root ()) "til"
-let nixos_configs_root () = Filename.concat repo_root "nixos-configs"
+let nixos_configs_root () =
+  try Sys.getenv "NIXOS_CONFIGS_ROOT"
+  with Not_found -> Filename.concat (Sys.getenv "HOME") "Projects/nixos-configs"
 let remotes_config_path () = Filename.concat (nixos_configs_root ()) ".remotes"
 
 let show_help () =
@@ -37,7 +39,7 @@ let show_help () =
   print_endline "       j project <search> [pattern]";
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
   print_endline "       j til <topic|list|search> [pattern]";
-  print_endline "       j remote <add|list|pull|deploy|ssh> [args]";
+  print_endline "       j remote <add|list|pull|deploy|ssh|flash|pull-key|discover> [args]";
   print_endline "";
   print_endline "Config Commands:";
   print_endline "  import <package>  Copy config from system location to repo";
@@ -82,6 +84,9 @@ let show_help () =
   print_endline "  remote deploy <name>             Deploy config to remote and rebuild";
   print_endline "  remote ssh <name>                SSH into remote machine";
   print_endline "  remote flash                     Build and flash installer ISO to USB";
+  print_endline "  remote pull-key <name>           Pull SSH keys from remote for secrets.nix";
+  print_endline "  remote discover                  Scan for mDNS-discoverable devices on LAN";
+  print_endline "  remote setup <build> [--name n]  Deploy build config to init machine and register remote";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
@@ -689,6 +694,77 @@ let remote_ssh name =
     let result = Sys.command ssh_cmd in
     exit result
 
+let remote_pull_key name =
+  match find_remote name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    let configs_root = nixos_configs_root () in
+
+    if not (file_exists configs_root) then (
+      printf "Error: nixos-configs not found at %s\n" configs_root;
+      exit 1
+    );
+
+    (* Read local Mac public key *)
+    let home = Sys.getenv "HOME" in
+    let local_pubkey_path = Filename.concat home ".ssh/id_ed25519.pub" in
+
+    if not (file_exists local_pubkey_path) then (
+      printf "Error: No SSH public key found at %s\n" local_pubkey_path;
+      printf "Generate one with: ssh-keygen -t ed25519\n";
+      exit 1
+    );
+
+    let local_pubkey =
+      let ic = open_in local_pubkey_path in
+      let line = input_line ic in
+      close_in ic;
+      String.trim line
+    in
+
+    printf "Mac public key: %s\n" local_pubkey;
+
+    (* SCP GitHub private key from remote *)
+    let github_key_dest = Filename.concat configs_root "github-key" in
+    let scp_priv = sprintf "scp %s@%s:~/.ssh/id_ed25519 \"%s\""
+      remote.user remote.host github_key_dest in
+    printf "Pulling GitHub private key from %s@%s...\n" remote.user remote.host;
+    let result = Sys.command scp_priv in
+    if result <> 0 then (
+      printf "Error: Failed to pull private key from remote\n";
+      exit 1
+    );
+
+    (* Read GitHub public key from remote *)
+    let read_pubkey_cmd = sprintf "ssh %s@%s 'cat ~/.ssh/id_ed25519.pub'"
+      remote.user remote.host in
+    let ic = Unix.open_process_in read_pubkey_cmd in
+    let github_pubkey = try String.trim (input_line ic) with End_of_file -> "" in
+    let _ = Unix.close_process_in ic in
+
+    if github_pubkey = "" then (
+      printf "Error: Failed to read public key from remote\n";
+      exit 1
+    );
+
+    printf "GitHub public key: %s\n" github_pubkey;
+
+    (* Write secrets.nix *)
+    let secrets_path = Filename.concat configs_root "secrets.nix" in
+    let oc = open_out secrets_path in
+    fprintf oc "{\n";
+    fprintf oc "  authorizedKey = \"%s\";\n" local_pubkey;
+    fprintf oc "  githubPrivateKeyFile = ./github-key;\n";
+    fprintf oc "  githubPublicKey = \"%s\";\n" github_pubkey;
+    fprintf oc "}\n";
+    close_out oc;
+
+    printf "✓ Generated %s\n" secrets_path;
+    printf "✓ Saved GitHub private key to %s\n" github_key_dest;
+    printf "\nThese files are gitignored and will be baked into the ISO at build time.\n"
+
 let remote_flash () =
   let configs_root = nixos_configs_root () in
 
@@ -699,7 +775,14 @@ let remote_flash () =
     exit 1
   );
 
-  (* Use gum for nice UI *)
+  (* Check for secrets.nix *)
+  let secrets_path = Filename.concat configs_root "secrets.nix" in
+  if not (file_exists secrets_path) then (
+    printf "⚠️  Warning: %s not found\n" secrets_path;
+    printf "   The ISO will be built without SSH keys or GitHub credentials.\n";
+    printf "   Generate secrets with: j remote pull-key <name>\n\n"
+  );
+
   printf "🔨 Building NixOS installer ISO...\n";
   let build_cmd = sprintf "cd %s && nix build .#installer-iso" configs_root in
   let result = Sys.command build_cmd in
@@ -769,6 +852,129 @@ let remote_flash () =
   printf "  2. It will auto-connect to WiFi and enable SSH\n";
   printf "  3. Deploy with: j remote add <name> <ip> root && j remote deploy <name>\n"
 
+let remote_setup build_name remote_name =
+  let init_host = "init.local" in
+  let user = "root" in
+
+  printf "Setting up new machine...\n";
+  printf "  Build config: %s\n" build_name;
+  printf "  Remote name:  %s\n" remote_name;
+  printf "  Init host:    %s@%s\n" user init_host;
+  printf "\n";
+
+  (* Check that the build config exists in nixos-configs *)
+  let configs_root = nixos_configs_root () in
+  if not (file_exists configs_root) then (
+    printf "Error: nixos-configs not found at %s\n" configs_root;
+    exit 1
+  );
+
+  (* Verify the flake has this build config *)
+  let check_cmd = sprintf "nix flake show %s --json 2>/dev/null | grep -q '\"%s\"'"
+    configs_root build_name in
+  let result = Sys.command check_cmd in
+  if result <> 0 then (
+    printf "Warning: Could not verify that '%s' exists as a flake config in %s\n" build_name configs_root;
+    printf "Continuing anyway...\n\n"
+  );
+
+  (* Check if remote name already exists *)
+  let remotes = read_remotes () in
+  if List.exists (fun r -> r.name = remote_name) remotes then (
+    printf "Error: Remote '%s' already exists. Use 'j remote list' to see configured remotes.\n" remote_name;
+    exit 1
+  );
+
+  (* Clone/update nixos-configs on the init machine *)
+  let flake_path = "/tmp/nixos-configs" in
+  let clone_cmd = sprintf
+    "ssh %s@%s 'if [ -d %s ]; then cd %s && git pull; else git clone git@github.com:jowi-dev/nixos-configs.git %s; fi'"
+    user init_host flake_path flake_path flake_path in
+  printf "Cloning/updating nixos-configs on %s...\n" init_host;
+  let result = Sys.command clone_cmd in
+  if result <> 0 then (
+    printf "Error: Failed to clone/update configuration on %s\n" init_host;
+    exit 1
+  );
+
+  (* Deploy the build config *)
+  let rebuild_cmd = sprintf
+    "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
+    user init_host flake_path build_name in
+  printf "\nRebuilding NixOS with flake config '%s'...\n" build_name;
+  printf "This may take a few minutes...\n";
+  flush stdout;
+  let result = Sys.command rebuild_cmd in
+  if result <> 0 then (
+    printf "Error: NixOS rebuild failed\n";
+    exit 1
+  );
+
+  (* Register the remote *)
+  let final_host = remote_name ^ ".local" in
+  let new_remote = { name = remote_name; host = final_host; user } in
+  write_remotes (new_remote :: remotes);
+
+  printf "\n✓ Successfully deployed '%s' config to init machine\n" build_name;
+  printf "✓ Registered remote '%s' at %s@%s\n" remote_name user final_host;
+  printf "\nThe machine's hostname is now '%s'. You can:\n" build_name;
+  printf "  ssh %s@%s\n" user final_host;
+  printf "  j remote ssh %s\n" remote_name;
+  printf "  j remote deploy %s\n" remote_name
+
+let remote_discover () =
+  printf "Scanning for devices on the local network (3 seconds)...\n\n";
+  flush stdout;
+
+  (* Use dns-sd to browse for workstation services published by Avahi *)
+  let tmpfile = Filename.temp_file "j-discover" ".txt" in
+  let cmd = sprintf "dns-sd -B _workstation._tcp . > \"%s\" 2>/dev/null & PID=$!; sleep 3; kill $PID 2>/dev/null; wait $PID 2>/dev/null" tmpfile in
+  let _ = Sys.command cmd in
+
+  let ic = open_in tmpfile in
+  let devices = ref [] in
+  (try while true do
+    let line = input_line ic in
+    (* Lines look like: "... Add ... local. _workstation._tcp. hostname [xx:xx:xx:xx:xx:xx]" *)
+    if String.length line > 0 then
+      let parts = String.split_on_char ' ' line in
+      let non_empty = List.filter (fun s -> String.length s > 0) parts in
+      (* Find lines with "Add" that contain instance names *)
+      if List.mem "Add" non_empty then
+        (* The instance name is everything after _workstation._tcp. *)
+        let rec find_after_service = function
+          | [] -> None
+          | x :: rest when String.length x > 0 && String.get x 0 = '_' ->
+            (* Skip service type fields, instance name follows *)
+            (match rest with
+            | [] -> None
+            | _ -> Some (String.concat " " rest))
+          | _ :: rest -> find_after_service rest
+        in
+        match find_after_service (List.rev (List.rev non_empty)) with
+        | Some name ->
+          (* Extract hostname (before the MAC address in brackets) *)
+          let hostname = match String.split_on_char '[' name with
+            | h :: _ -> String.trim h
+            | [] -> name
+          in
+          if not (List.mem hostname !devices) then
+            devices := hostname :: !devices
+        | None -> ()
+  done with End_of_file -> ());
+  close_in ic;
+  (try Sys.remove tmpfile with _ -> ());
+
+  let found = List.rev !devices in
+  if List.length found = 0 then
+    printf "No mDNS devices found. Make sure target machines have Avahi enabled.\n"
+  else (
+    printf "Discoverable devices:\n";
+    List.iter (fun name ->
+      printf "  %s  →  %s.local\n" name name
+    ) found
+  )
+
 let handle_remote_command args =
   match args with
   | ["add"; name; host] -> remote_add name host "root"
@@ -778,9 +984,13 @@ let handle_remote_command args =
   | ["deploy"; name] -> remote_deploy name
   | ["ssh"; name] -> remote_ssh name
   | ["flash"] -> remote_flash ()
+  | ["pull-key"; name] -> remote_pull_key name
+  | ["discover"] -> remote_discover ()
+  | ["setup"; build] -> remote_setup build build
+  | ["setup"; build; "--name"; name] -> remote_setup build name
   | _ ->
     print_endline "Error: Invalid remote command";
-    print_endline "Usage: j remote <add|list|pull|deploy|ssh> [args]";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup> [args]";
     show_help ();
     exit 1
 
