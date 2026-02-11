@@ -1,3 +1,8 @@
+# Nix
+if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+    source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+end
+
 # Homebrew setup
 if test -d /opt/homebrew
     eval (/opt/homebrew/bin/brew shellenv)
