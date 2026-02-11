@@ -17,6 +17,8 @@ end
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 set -gx DEVTOOLS_ROOT /Users/jowi/devtools
+set -gx NIXOS_CONFIGS_ROOT /Users/jowi/Projects/nixos-configs
+
 set -gx FILE_EXPLORER nnn
 set -gx MACHINE_TYPE personal
 
