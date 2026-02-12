@@ -880,7 +880,7 @@ let remote_flash builder_opt =
   (* Flash the ISO *)
   printf "\n💾 Flashing ISO to %s...\n" device;
   printf "This may take several minutes...\n\n";
-  let flash_cmd = sprintf "sudo dd if=%s of=%s bs=4m status=progress" iso_file device in
+  let flash_cmd = sprintf "sudo dd if=%s of=%s bs=4m status=progress conv=fsync" iso_file device in
   let result = Sys.command flash_cmd in
   if result <> 0 then (
     printf "Error: Failed to flash ISO\n";
