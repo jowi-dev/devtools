@@ -651,7 +651,7 @@ let remote_deploy name =
     printf "Deploying configuration to %s@%s...\n" remote.user remote.host;
 
     (* Clone/update nixos-configs from GitHub *)
-    let flake_path = "/tmp/nixos-configs" in
+    let flake_path = "/etc/nixos/nixos-configs" in
     let clone_cmd = sprintf
       "ssh %s@%s 'if [ -d %s ]; then cd %s && git pull; else git clone git@github.com:jowi-dev/nixos-configs.git %s; fi'"
       remote.user remote.host flake_path flake_path flake_path in
@@ -662,16 +662,24 @@ let remote_deploy name =
       exit 1
     );
 
-    (* Copy github-key to remote so flake can access it *)
+    (* Copy secrets to /etc/nixos/secrets/ on remote *)
+    let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" remote.user remote.host in
+    let _ = Sys.command mkdir_cmd in
+
     let github_key_path = Filename.concat (nixos_configs_root ()) "github-key" in
     if file_exists github_key_path then (
-      let scp_cmd = sprintf "scp %s %s@%s:%s/"
-        github_key_path remote.user remote.host flake_path in
+      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
+        github_key_path remote.user remote.host in
       printf "Copying GitHub key to remote...\n";
-      let _ = Sys.command scp_cmd in
-      let stage_cmd = sprintf "ssh %s@%s 'cd %s && git add -f github-key'"
-        remote.user remote.host flake_path in
-      let _ = Sys.command stage_cmd in ()
+      let _ = Sys.command scp_cmd in ()
+    );
+
+    let wifi_networks_path = Filename.concat (nixos_configs_root ()) "wifi-networks.nix" in
+    if file_exists wifi_networks_path then (
+      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
+        wifi_networks_path remote.user remote.host in
+      printf "Copying WiFi config to remote...\n";
+      let _ = Sys.command scp_cmd in ()
     );
 
     (* Deploy using flake *)
@@ -786,19 +794,17 @@ let remote_flash builder_opt =
     exit 1
   );
 
-  (* Check for github-key *)
+  (* Check for secrets *)
   let github_key_path = Filename.concat configs_root "github-key" in
-  let has_github_key = file_exists github_key_path in
-  if not has_github_key then (
+  if not (file_exists github_key_path) then (
     printf "⚠️  Warning: github-key not found in %s\n" configs_root;
     printf "   The ISO will be built without GitHub credentials.\n";
     printf "   Generate with: j remote pull-key <name>\n\n"
   );
-
-  (* Stage github-key so flake can see it *)
-  if has_github_key then (
-    let stage_cmd = sprintf "cd %s && git add -f github-key" configs_root in
-    let _ = Sys.command stage_cmd in ()
+  let wifi_networks_path = Filename.concat configs_root "wifi-networks.nix" in
+  if not (file_exists wifi_networks_path) then (
+    printf "⚠️  Warning: wifi-networks.nix not found in %s\n" configs_root;
+    printf "   WiFi will not auto-connect. See wifi-networks.nix.example\n\n"
   );
 
   printf "🔨 Building NixOS installer ISO...\n";
@@ -822,14 +828,8 @@ let remote_flash builder_opt =
       sprintf " -j0 --builders 'ssh-ng://%s@%s x86_64-linux %s 4' --builders-use-substitutes"
         remote.user remote.host key_path
   in
-  let build_cmd = sprintf "cd %s && nix build .#packages.x86_64-linux.installer-iso%s" configs_root builder_args in
+  let build_cmd = sprintf "cd %s && NIXOS_SECRETS_DIR=%s nix build .#packages.x86_64-linux.installer-iso --impure%s" configs_root configs_root builder_args in
   let result = Sys.command build_cmd in
-
-  (* Unstage github-key after build *)
-  if has_github_key then (
-    let unstage_cmd = sprintf "cd %s && git reset github-key 2>/dev/null" configs_root in
-    let _ = Sys.command unstage_cmd in ()
-  );
 
   if result <> 0 then (
     printf "Error: Failed to build ISO\n";
@@ -931,7 +931,7 @@ let remote_setup build_name remote_name =
   );
 
   (* Clone/update nixos-configs on the init machine *)
-  let flake_path = "/tmp/nixos-configs" in
+  let flake_path = "/etc/nixos/nixos-configs" in
   let clone_cmd = sprintf
     "ssh %s@%s 'if [ -d %s ]; then cd %s && git pull; else git clone git@github.com:jowi-dev/nixos-configs.git %s; fi'"
     user init_host flake_path flake_path flake_path in
@@ -942,16 +942,24 @@ let remote_setup build_name remote_name =
     exit 1
   );
 
-  (* Copy github-key to remote so flake can access it *)
+  (* Copy secrets to /etc/nixos/secrets/ on remote *)
+  let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" user init_host in
+  let _ = Sys.command mkdir_cmd in
+
   let github_key_path = Filename.concat (nixos_configs_root ()) "github-key" in
   if file_exists github_key_path then (
-    let scp_cmd = sprintf "scp %s %s@%s:%s/"
-      github_key_path user init_host flake_path in
+    let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
+      github_key_path user init_host in
     printf "Copying GitHub key to remote...\n";
-    let _ = Sys.command scp_cmd in
-    let stage_cmd = sprintf "ssh %s@%s 'cd %s && git add -f github-key'"
-      user init_host flake_path in
-    let _ = Sys.command stage_cmd in ()
+    let _ = Sys.command scp_cmd in ()
+  );
+
+  let wifi_networks_path = Filename.concat (nixos_configs_root ()) "wifi-networks.nix" in
+  if file_exists wifi_networks_path then (
+    let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
+      wifi_networks_path user init_host in
+    printf "Copying WiFi config to remote...\n";
+    let _ = Sys.command scp_cmd in ()
   );
 
   (* Deploy the build config *)
