@@ -1014,8 +1014,23 @@ let remote_setup build_name remote_name =
     exit 1
   );
 
-  (* Secrets (github-key, wifi-networks.nix, user-password.nix) are already
-     baked into the installer ISO at /etc/nixos/secrets/ — no need to copy *)
+  (* Copy secrets to /etc/nixos/secrets/ on the live system.
+     The ISO bakes secret values into its own config, but the raw files
+     aren't on the filesystem — nixos-install needs them to build the target config. *)
+  let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" user init_host in
+  let _ = Sys.command mkdir_cmd in
+
+  let secret_files = ["github-key"; "wifi-networks.nix"; "user-password.nix"] in
+  List.iter (fun filename ->
+    let path = Filename.concat (nixos_configs_root ()) filename in
+    if file_exists path then (
+      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
+        path user init_host in
+      printf "Copying %s to remote...\n" filename;
+      let _ = Sys.command scp_cmd in ()
+    ) else
+      printf "Warning: %s not found, skipping\n" filename
+  ) secret_files;
 
   (* Install NixOS to disk *)
   let install_cmd = sprintf
@@ -1035,6 +1050,9 @@ let remote_setup build_name remote_name =
   printf "** Remove the USB drive now! **\n";
   flush stdout;
   let _ = Sys.command (sprintf "ssh %s@%s 'reboot' 2>/dev/null" user init_host) in
+
+  (* Remove init.local from known_hosts so the next setup isn't blocked by a stale key *)
+  let _ = Sys.command (sprintf "ssh-keygen -R %s 2>/dev/null" init_host) in
 
   (* Register the remote with jowi user (SSH keys are deployed for jowi, not root) *)
   let final_host = remote_name ^ ".local" in
