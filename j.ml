@@ -83,7 +83,7 @@ let show_help () =
   print_endline "  remote pull <name>               Pull config from remote to local repo";
   print_endline "  remote deploy <name>             Deploy config to remote and rebuild";
   print_endline "  remote ssh <name>                SSH into remote machine";
-  print_endline "  remote flash [--builder name]    Build and flash installer ISO to USB";
+  print_endline "  remote flash [--builder name] [--disk /dev/diskN]  Build and flash installer ISO to USB";
   print_endline "  remote pull-key <name>           Pull SSH keys from remote for secrets.nix";
   print_endline "  remote discover                  Scan for mDNS-discoverable devices on LAN";
   print_endline "  remote setup <build> [--name n]  Deploy build config to init machine and register remote";
@@ -784,7 +784,7 @@ let remote_pull_key name =
     printf "✓ Saved GitHub private key to %s\n" github_key_dest;
     printf "\nidentity.nix should be committed. github-key is gitignored and staged at build time.\n"
 
-let remote_flash builder_opt =
+let remote_flash builder_opt disk_opt =
   let configs_root = nixos_configs_root () in
 
   (* Check if nixos-configs exists *)
@@ -806,6 +806,9 @@ let remote_flash builder_opt =
     printf "⚠️  Warning: wifi-networks.nix not found in %s\n" configs_root;
     printf "   WiFi will not auto-connect. See wifi-networks.nix.example\n\n"
   );
+
+  (* Cache sudo credentials early so the flash step doesn't prompt later *)
+  let _ = Sys.command "sudo -v" in
 
   printf "🔨 Building NixOS installer ISO...\n";
   let builder_args = match builder_opt with
@@ -853,23 +856,27 @@ let remote_flash builder_opt =
 
   printf "\n✓ ISO built: %s\n\n" iso_file;
 
-  (* List available USB drives *)
-  printf "📀 Available USB drives:\n";
-  let _ = Sys.command "diskutil list | grep -E '(external|removable)' -B 5" in
-  printf "\n";
+  let device = match disk_opt with
+    | Some d -> d
+    | None ->
+      (* List available USB drives *)
+      printf "📀 Available USB drives:\n";
+      let _ = Sys.command "diskutil list | grep -E '(external|removable)' -B 5" in
+      printf "\n";
+      printf "Enter USB device (e.g., /dev/disk4): ";
+      flush stdout;
+      read_line ()
+  in
 
-  (* Prompt for USB device using gum *)
-  printf "Enter USB device (e.g., /dev/disk4): ";
-  flush stdout;
-  let device = read_line () in
-
-  (* Confirm *)
-  let confirm_msg = sprintf "⚠️  This will ERASE ALL DATA on %s. Continue?" device in
-  let confirm_cmd = sprintf "gum confirm \"%s\"" confirm_msg in
-  let result = Sys.command confirm_cmd in
-  if result <> 0 then (
-    printf "Cancelled.\n";
-    exit 0
+  (* Confirm unless disk was specified *)
+  if disk_opt = None then (
+    let confirm_msg = sprintf "⚠️  This will ERASE ALL DATA on %s. Continue?" device in
+    let confirm_cmd = sprintf "gum confirm \"%s\"" confirm_msg in
+    let result = Sys.command confirm_cmd in
+    if result <> 0 then (
+      printf "Cancelled.\n";
+      exit 0
+    )
   );
 
   (* Unmount the device first *)
@@ -877,10 +884,13 @@ let remote_flash builder_opt =
   let unmount_cmd = sprintf "diskutil unmountDisk %s" device in
   let _ = Sys.command unmount_cmd in
 
-  (* Flash the ISO *)
+  (* Flash the ISO using cp to raw device *)
   printf "\n💾 Flashing ISO to %s...\n" device;
   printf "This may take several minutes...\n\n";
-  let flash_cmd = sprintf "sudo dd if=%s of=%s bs=4m status=progress conv=fsync" iso_file device in
+  let raw_device = if String.starts_with ~prefix:"/dev/disk" device
+    then "/dev/rdisk" ^ String.sub device 9 (String.length device - 9)
+    else device in
+  let flash_cmd = sprintf "sudo cp %s %s && sync" iso_file raw_device in
   let result = Sys.command flash_cmd in
   if result <> 0 then (
     printf "Error: Failed to flash ISO\n";
@@ -1048,8 +1058,11 @@ let handle_remote_command args =
   | ["pull"; name] -> remote_pull name
   | ["deploy"; name] -> remote_deploy name
   | ["ssh"; name] -> remote_ssh name
-  | ["flash"] -> remote_flash None
-  | ["flash"; "--builder"; name] -> remote_flash (Some name)
+  | ["flash"] -> remote_flash None None
+  | ["flash"; "--disk"; disk] -> remote_flash None (Some disk)
+  | ["flash"; "--builder"; name] -> remote_flash (Some name) None
+  | ["flash"; "--builder"; name; "--disk"; disk] -> remote_flash (Some name) (Some disk)
+  | ["flash"; "--disk"; disk; "--builder"; name] -> remote_flash (Some name) (Some disk)
   | ["pull-key"; name] -> remote_pull_key name
   | ["discover"] -> remote_discover ()
   | ["setup"; build] -> remote_setup build build
