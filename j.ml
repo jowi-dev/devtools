@@ -806,6 +806,11 @@ let remote_flash builder_opt disk_opt =
     printf "⚠️  Warning: wifi-networks.nix not found in %s\n" configs_root;
     printf "   WiFi will not auto-connect. See wifi-networks.nix.example\n\n"
   );
+  let user_password_path = Filename.concat configs_root "user-password.nix" in
+  if not (file_exists user_password_path) then (
+    printf "⚠️  Warning: user-password.nix not found in %s\n" configs_root;
+    printf "   No console login password will be set.\n\n"
+  );
 
   (* Cache sudo credentials early so the flash step doesn't prompt later *)
   let _ = Sys.command "sudo -v" in
@@ -940,6 +945,63 @@ let remote_setup build_name remote_name =
     exit 1
   );
 
+  (* Disk detection, partitioning, and formatting via SSH *)
+  printf "Detecting disk on %s...\n" init_host;
+  flush stdout;
+  let disk_script = String.concat "\n"
+    [ "set -euo pipefail";
+      "DISK=$(lsblk -d -o NAME,SIZE,TYPE,TRAN,RM -n -b | awk '$3==\"disk\" && $5==\"0\" && $4!=\"usb\" {print $1, $2}' | sort -k2 -n -r | head -1 | awk '{print $1}')";
+      "if [ -z \"$DISK\" ]; then echo 'ERROR: No suitable disk found' >&2; exit 1; fi";
+      "echo \"/dev/$DISK\"" ] in
+  let detect_cmd = sprintf "ssh %s@%s bash <<'NIXSCRIPT'\n%s\nNIXSCRIPT" user init_host disk_script in
+  let ic = Unix.open_process_in detect_cmd in
+  let disk_dev = (try String.trim (input_line ic) with End_of_file -> "") in
+  let _ = Unix.close_process_in ic in
+  if disk_dev = "" then (
+    printf "Error: No suitable disk found on %s\n" init_host;
+    exit 1
+  );
+  printf "  Selected disk: %s\n" disk_dev;
+
+  printf "Partitioning and formatting %s...\n" disk_dev;
+  flush stdout;
+  let part_script = String.concat "\n"
+    [ "set -euo pipefail";
+      sprintf "DISK=%s" disk_dev;
+      "case \"$DISK\" in *nvme*|*mmcblk*) PART=\"${DISK}p\" ;; *) PART=\"$DISK\" ;; esac";
+      "parted -s \"$DISK\" -- mklabel gpt";
+      "parted -s \"$DISK\" -- mkpart ESP fat32 1MiB 513MiB";
+      "parted -s \"$DISK\" -- set 1 esp on";
+      "parted -s \"$DISK\" -- mkpart swap linux-swap 513MiB 8705MiB";
+      "parted -s \"$DISK\" -- mkpart root ext4 8705MiB 100%";
+      "sleep 1";
+      "mkfs.fat -F 32 \"${PART}1\"";
+      "mkswap \"${PART}2\"";
+      "mkfs.ext4 -F \"${PART}3\"";
+      "mount \"${PART}3\" /mnt";
+      "mkdir -p /mnt/boot";
+      "mount \"${PART}1\" /mnt/boot";
+      "swapon \"${PART}2\"";
+      "echo Done" ] in
+  let fmt_cmd = sprintf "ssh %s@%s bash <<'NIXSCRIPT'\n%s\nNIXSCRIPT" user init_host part_script in
+  let result = Sys.command fmt_cmd in
+  if result <> 0 then (
+    printf "Error: Disk partitioning/formatting failed\n";
+    exit 1
+  );
+
+  (* Generate hardware config *)
+  printf "Generating hardware configuration...\n";
+  flush stdout;
+  let hwcfg_cmd = sprintf
+    "ssh %s@%s 'nixos-generate-config --root /mnt && cp /mnt/etc/nixos/hardware-configuration.nix /etc/nixos/hardware-configuration.nix'"
+    user init_host in
+  let result = Sys.command hwcfg_cmd in
+  if result <> 0 then (
+    printf "Error: Failed to generate hardware configuration\n";
+    exit 1
+  );
+
   (* Clone/update nixos-configs on the init machine *)
   let flake_path = "/etc/nixos/nixos-configs" in
   let clone_cmd = sprintf
@@ -952,48 +1014,37 @@ let remote_setup build_name remote_name =
     exit 1
   );
 
-  (* Copy secrets to /etc/nixos/secrets/ on remote *)
-  let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" user init_host in
-  let _ = Sys.command mkdir_cmd in
+  (* Secrets (github-key, wifi-networks.nix, user-password.nix) are already
+     baked into the installer ISO at /etc/nixos/secrets/ — no need to copy *)
 
-  let github_key_path = Filename.concat (nixos_configs_root ()) "github-key" in
-  if file_exists github_key_path then (
-    let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
-      github_key_path user init_host in
-    printf "Copying GitHub key to remote...\n";
-    let _ = Sys.command scp_cmd in ()
-  );
-
-  let wifi_networks_path = Filename.concat (nixos_configs_root ()) "wifi-networks.nix" in
-  if file_exists wifi_networks_path then (
-    let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
-      wifi_networks_path user init_host in
-    printf "Copying WiFi config to remote...\n";
-    let _ = Sys.command scp_cmd in ()
-  );
-
-  (* Deploy the build config *)
-  let rebuild_cmd = sprintf
-    "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
+  (* Install NixOS to disk *)
+  let install_cmd = sprintf
+    "ssh -t %s@%s 'nixos-install --root /mnt --flake %s#%s --impure --no-root-passwd'"
     user init_host flake_path build_name in
-  printf "\nRebuilding NixOS with flake config '%s'...\n" build_name;
-  printf "This may take a few minutes...\n";
+  printf "\nInstalling NixOS with flake config '%s'...\n" build_name;
+  printf "This may take a while...\n";
   flush stdout;
-  let result = Sys.command rebuild_cmd in
+  let result = Sys.command install_cmd in
   if result <> 0 then (
-    printf "Error: NixOS rebuild failed\n";
+    printf "Error: nixos-install failed\n";
     exit 1
   );
 
-  (* Register the remote *)
+  (* Reboot into installed system *)
+  printf "\nInstallation complete. Rebooting...\n";
+  printf "** Remove the USB drive now! **\n";
+  flush stdout;
+  let _ = Sys.command (sprintf "ssh %s@%s 'reboot' 2>/dev/null" user init_host) in
+
+  (* Register the remote with jowi user (SSH keys are deployed for jowi, not root) *)
   let final_host = remote_name ^ ".local" in
-  let new_remote = { name = remote_name; host = final_host; user } in
+  let remote_user = "jowi" in
+  let new_remote = { name = remote_name; host = final_host; user = remote_user } in
   write_remotes (new_remote :: remotes);
 
-  printf "\n✓ Successfully deployed '%s' config to init machine\n" build_name;
-  printf "✓ Registered remote '%s' at %s@%s\n" remote_name user final_host;
-  printf "\nThe machine's hostname is now '%s'. You can:\n" build_name;
-  printf "  ssh %s@%s\n" user final_host;
+  printf "\n✓ NixOS installed with '%s' config\n" build_name;
+  printf "✓ Registered remote '%s' at %s@%s\n" remote_name remote_user final_host;
+  printf "\nAfter reboot, you can:\n";
   printf "  j remote ssh %s\n" remote_name;
   printf "  j remote deploy %s\n" remote_name
 
