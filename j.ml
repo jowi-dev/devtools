@@ -963,26 +963,49 @@ let remote_setup build_name remote_name =
   );
   printf "  Selected disk: %s\n" disk_dev;
 
+  (* Detect boot mode: if /sys/firmware/efi exists on the target, use UEFI/GPT; otherwise BIOS/MBR *)
+  let boot_mode_cmd = sprintf "ssh %s@%s '[ -d /sys/firmware/efi ] && echo UEFI || echo BIOS'" user init_host in
+  let ic_boot = Unix.open_process_in boot_mode_cmd in
+  let boot_mode = (try String.trim (input_line ic_boot) with End_of_file -> "BIOS") in
+  let _ = Unix.close_process_in ic_boot in
+  printf "  Boot mode: %s\n" boot_mode;
+
   printf "Partitioning and formatting %s...\n" disk_dev;
   flush stdout;
-  let part_script = String.concat "\n"
-    [ "set -euo pipefail";
-      sprintf "DISK=%s" disk_dev;
-      "case \"$DISK\" in *nvme*|*mmcblk*) PART=\"${DISK}p\" ;; *) PART=\"$DISK\" ;; esac";
-      "parted -s \"$DISK\" -- mklabel gpt";
-      "parted -s \"$DISK\" -- mkpart ESP fat32 1MiB 513MiB";
-      "parted -s \"$DISK\" -- set 1 esp on";
-      "parted -s \"$DISK\" -- mkpart swap linux-swap 513MiB 8705MiB";
-      "parted -s \"$DISK\" -- mkpart root ext4 8705MiB 100%";
-      "sleep 1";
-      "mkfs.fat -F 32 \"${PART}1\"";
-      "mkswap \"${PART}2\"";
-      "mkfs.ext4 -F \"${PART}3\"";
-      "mount \"${PART}3\" /mnt";
-      "mkdir -p /mnt/boot";
-      "mount \"${PART}1\" /mnt/boot";
-      "swapon \"${PART}2\"";
-      "echo Done" ] in
+  let part_script = if boot_mode = "UEFI" then
+    String.concat "\n"
+      [ "set -euo pipefail";
+        sprintf "DISK=%s" disk_dev;
+        "case \"$DISK\" in *nvme*|*mmcblk*) PART=\"${DISK}p\" ;; *) PART=\"$DISK\" ;; esac";
+        "parted -s \"$DISK\" -- mklabel gpt";
+        "parted -s \"$DISK\" -- mkpart ESP fat32 1MiB 513MiB";
+        "parted -s \"$DISK\" -- set 1 esp on";
+        "parted -s \"$DISK\" -- mkpart swap linux-swap 513MiB 8705MiB";
+        "parted -s \"$DISK\" -- mkpart root ext4 8705MiB 100%";
+        "sleep 1";
+        "mkfs.fat -F 32 \"${PART}1\"";
+        "mkswap \"${PART}2\"";
+        "mkfs.ext4 -F \"${PART}3\"";
+        "mount \"${PART}3\" /mnt";
+        "mkdir -p /mnt/boot";
+        "mount \"${PART}1\" /mnt/boot";
+        "swapon \"${PART}2\"";
+        "echo Done" ]
+  else
+    String.concat "\n"
+      [ "set -euo pipefail";
+        sprintf "DISK=%s" disk_dev;
+        "case \"$DISK\" in *nvme*|*mmcblk*) PART=\"${DISK}p\" ;; *) PART=\"$DISK\" ;; esac";
+        "parted -s \"$DISK\" -- mklabel msdos";
+        "parted -s \"$DISK\" -- mkpart primary linux-swap 1MiB 8193MiB";
+        "parted -s \"$DISK\" -- mkpart primary ext4 8193MiB 100%";
+        "parted -s \"$DISK\" -- set 2 boot on";
+        "sleep 1";
+        "mkswap \"${PART}1\"";
+        "mkfs.ext4 -F \"${PART}2\"";
+        "mount \"${PART}2\" /mnt";
+        "swapon \"${PART}1\"";
+        "echo Done" ] in
   let fmt_cmd = sprintf "ssh %s@%s bash <<'NIXSCRIPT'\n%s\nNIXSCRIPT" user init_host part_script in
   let result = Sys.command fmt_cmd in
   if result <> 0 then (
