@@ -7,9 +7,9 @@ tags
 *.backup
 
 j
-j.o
-j.cmx
-j.cmi
+*.o
+*.cmx
+*.cmi
 
 **/.DS_Store
 .DS_Store

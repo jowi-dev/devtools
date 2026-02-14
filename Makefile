@@ -1,6 +1,7 @@
 # Build j command
-j: j.ml
-	eval "$$(mise env --shell=bash)" && ocamlopt -I +unix unix.cmxa -o j j.ml
+J_SOURCES = common.ml config.ml nvim.ml project.ml plan.ml til.ml remote.ml j.ml
+j: $(J_SOURCES)
+	eval "$$(mise env --shell=bash)" && ocamlopt -I +unix unix.cmxa -o j $(J_SOURCES)
 
 # Install system dependencies and setup development environment
 install:
@@ -83,4 +84,7 @@ install:
 	@echo "🎉 Development environment setup complete!"
 	@echo "You can now use 'j' from anywhere to sync your configs."
 
-.PHONY: install
+clean:
+	rm -f j *.cmi *.cmx *.o
+
+.PHONY: install clean
