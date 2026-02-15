@@ -580,6 +580,30 @@ let discover () =
     ) found
   )
 
+let screen_off name =
+  match find name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    printf "Turning off screen on %s...\n" remote.host;
+    flush stdout;
+    let cmd = sprintf "ssh -t %s@%s 'for bl in /sys/class/backlight/*/brightness; do echo 0 | sudo tee $bl > /dev/null; done'" remote.user remote.host in
+    let _ = Sys.command cmd in
+    printf "Screen off on %s\n" name
+
+let screen_on name =
+  match find name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    printf "Turning on screen on %s...\n" remote.host;
+    flush stdout;
+    let cmd = sprintf "ssh -t %s@%s 'for bl in /sys/class/backlight/*/brightness; do cat $(dirname $bl)/max_brightness | sudo tee $bl > /dev/null; done'" remote.user remote.host in
+    let _ = Sys.command cmd in
+    printf "Screen on on %s\n" name
+
 let handle_command args =
   match args with
   | ["add"; name; host] -> add name host "root"
@@ -597,7 +621,9 @@ let handle_command args =
   | ["discover"] -> discover ()
   | ["setup"; build] -> setup build build
   | ["setup"; build; "--name"; name] -> setup build name
+  | ["screen-off"; name] -> screen_off name
+  | ["screen-on"; name] -> screen_on name
   | _ ->
     print_endline "Error: Invalid remote command";
-    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup> [args]";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on> [args]";
     exit 1

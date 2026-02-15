@@ -58,6 +58,8 @@ let show_help () =
   print_endline "  remote pull-key <name>           Pull SSH keys from remote for secrets.nix";
   print_endline "  remote discover                  Scan for mDNS-discoverable devices on LAN";
   print_endline "  remote setup <build> [--name n]  Deploy build config to init machine and register remote";
+  print_endline "  remote screen-off <name>         Turn off screen on remote machine";
+  print_endline "  remote screen-on <name>          Turn on screen on remote machine";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
