@@ -634,6 +634,42 @@ let secret_refresh name =
       );
       printf "Secrets refreshed on %s (sourced from %s)\n" target.name source.name)
 
+let push_secret filename =
+  let local_path = Filename.concat (nixos_configs_root ()) filename in
+  if not (file_exists local_path) then (
+    printf "Error: %s not found in %s\n" filename (nixos_configs_root ());
+    exit 1
+  );
+  let remotes = read_remotes () in
+  if List.length remotes = 0 then (
+    printf "Error: No remotes configured.\n";
+    exit 1
+  );
+  let failed = ref false in
+  List.iter (fun r ->
+    printf "Pushing %s to %s (%s@%s)...\n" filename r.name r.user r.host;
+    flush stdout;
+    let mkdir_cmd = sprintf "ssh -o ConnectTimeout=3 -o BatchMode=yes %s@%s 'mkdir -p /etc/nixos/secrets' 2>/dev/null"
+      r.user r.host in
+    if Sys.command mkdir_cmd <> 0 then (
+      printf "  Warning: %s unreachable, skipping\n" r.name;
+      failed := true
+    ) else (
+      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/%s"
+        local_path r.user r.host filename in
+      if Sys.command scp_cmd <> 0 then (
+        printf "  Error: Failed to push to %s\n" r.name;
+        failed := true
+      ) else
+        printf "  OK\n"
+    )
+  ) remotes;
+  if !failed then (
+    printf "\nSome hosts failed. Re-run or use secret-refresh later.\n";
+    exit 1
+  ) else
+    printf "\n%s pushed to all hosts.\n" filename
+
 let handle_command args =
   match args with
   | ["add"; name; host] -> add name host "root"
@@ -654,7 +690,8 @@ let handle_command args =
   | ["screen-off"; name] -> screen_off name
   | ["screen-on"; name] -> screen_on name
   | ["secret-refresh"; name] -> secret_refresh name
+  | ["push-secret"; filename] -> push_secret filename
   | _ ->
     print_endline "Error: Invalid remote command";
-    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh> [args]";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh|push-secret> [args]";
     exit 1
