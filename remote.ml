@@ -47,6 +47,18 @@ let find name =
   let remotes = read_remotes () in
   List.find_opt (fun r -> r.name = name) remotes
 
+let find_live_remote ?exclude () =
+  let remotes = read_remotes () in
+  let candidates = match exclude with
+    | None -> remotes
+    | Some name -> List.filter (fun r -> r.name <> name) remotes
+  in
+  List.find_opt (fun r ->
+    let cmd = sprintf "ssh -o ConnectTimeout=3 -o BatchMode=yes %s@%s 'true' 2>/dev/null"
+      r.user r.host in
+    Sys.command cmd = 0
+  ) candidates
+
 let add name host user =
   let remotes = read_remotes () in
   (match List.find_opt (fun r -> r.name = name) remotes with
@@ -134,25 +146,6 @@ let deploy name =
     if result <> 0 then (
       printf "Error: Failed to clone/update configuration from GitHub\n";
       exit 1
-    );
-
-    let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" remote.user remote.host in
-    let _ = Sys.command mkdir_cmd in
-
-    let github_key_path = Filename.concat (nixos_configs_root ()) "github-key" in
-    if file_exists github_key_path then (
-      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
-        github_key_path remote.user remote.host in
-      printf "Copying GitHub key to remote...\n";
-      let _ = Sys.command scp_cmd in ()
-    );
-
-    let wifi_networks_path = Filename.concat (nixos_configs_root ()) "wifi-networks.nix" in
-    if file_exists wifi_networks_path then (
-      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
-        wifi_networks_path remote.user remote.host in
-      printf "Copying WiFi config to remote...\n";
-      let _ = Sys.command scp_cmd in ()
     );
 
     let rebuild_cmd = sprintf
@@ -488,20 +481,34 @@ let setup build_name remote_name =
     exit 1
   );
 
-  let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" user init_host in
-  let _ = Sys.command mkdir_cmd in
-
-  let secret_files = ["github-key"; "wifi-networks.nix"; "user-password.nix"] in
-  List.iter (fun filename ->
-    let path = Filename.concat (nixos_configs_root ()) filename in
-    if file_exists path then (
-      let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
-        path user init_host in
-      printf "Copying %s to remote...\n" filename;
-      let _ = Sys.command scp_cmd in ()
-    ) else
-      printf "Warning: %s not found, skipping\n" filename
-  ) secret_files;
+  printf "Pushing secrets to new machine...\n";
+  flush stdout;
+  (match find_live_remote () with
+  | Some source ->
+    printf "Using %s (%s@%s) as secrets source...\n" source.name source.user source.host;
+    let push_cmd = sprintf
+      "ssh -A %s@%s 'nixos-secrets push %s@%s'"
+      source.user source.host user init_host in
+    let result = Sys.command push_cmd in
+    if result <> 0 then
+      printf "Warning: Secret push from %s failed, secrets may be incomplete\n" source.name
+  | None ->
+    printf "Warning: No live remotes found to source secrets from.\n";
+    printf "Falling back to local SCP...\n";
+    let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" user init_host in
+    let _ = Sys.command mkdir_cmd in
+    let secret_files = ["github-key"; "wifi-networks.nix"; "user-password.nix"] in
+    List.iter (fun filename ->
+      let path = Filename.concat (nixos_configs_root ()) filename in
+      if file_exists path then (
+        let scp_cmd = sprintf "scp %s %s@%s:/etc/nixos/secrets/"
+          path user init_host in
+        printf "Copying %s to remote...\n" filename;
+        let _ = Sys.command scp_cmd in ()
+      ) else
+        printf "Warning: %s not found, skipping\n" filename
+    ) secret_files
+  );
 
   let install_cmd = sprintf
     "ssh -t %s@%s 'nixos-install --root /mnt --flake %s#%s --impure --no-root-passwd'"
@@ -604,6 +611,29 @@ let screen_on name =
     let _ = Sys.command cmd in
     printf "Screen on on %s\n" name
 
+let secret_refresh name =
+  match find name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some target ->
+    printf "Finding a live remote to source secrets from...\n";
+    flush stdout;
+    (match find_live_remote ~exclude:name () with
+    | None ->
+      printf "Error: No other live remotes found to source secrets from.\n";
+      exit 1
+    | Some source ->
+      printf "Pushing secrets from %s to %s...\n" source.name target.name;
+      let cmd = sprintf "ssh -A %s@%s 'nixos-secrets push %s@%s'"
+        source.user source.host target.user target.host in
+      let result = Sys.command cmd in
+      if result <> 0 then (
+        printf "Error: Secret push failed\n";
+        exit 1
+      );
+      printf "Secrets refreshed on %s (sourced from %s)\n" target.name source.name)
+
 let handle_command args =
   match args with
   | ["add"; name; host] -> add name host "root"
@@ -623,7 +653,8 @@ let handle_command args =
   | ["setup"; build; "--name"; name] -> setup build name
   | ["screen-off"; name] -> screen_off name
   | ["screen-on"; name] -> screen_on name
+  | ["secret-refresh"; name] -> secret_refresh name
   | _ ->
     print_endline "Error: Invalid remote command";
-    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on> [args]";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh> [args]";
     exit 1
