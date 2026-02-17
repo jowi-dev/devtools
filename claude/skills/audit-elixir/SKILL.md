@@ -1,6 +1,11 @@
+---
+name: audit-elixir
+description: Run comprehensive Elixir quality audit (format, compile, credo, test)
+---
+
 # Audit - Elixir
 
-**Implements:** [audit.md](./audit.md) (language-agnostic template)
+**Implements:** [audit](../audit) (language-agnostic template)
 
 ## Purpose
 Run comprehensive quality checks for Elixir/Phoenix projects.
@@ -108,45 +113,45 @@ Then: `mix audit`
 
 ## Expected Output
 
-### ✅ All Passing
+### All Passing
 ```
-🎯 Running Elixir audit...
+Running Elixir audit...
 
-✅ Formatting
+Formatting
    All files formatted correctly
 
-✅ Compilation
+Compilation
    Build successful, 0 warnings
 
-✅ Credo
+Credo
    0 issues found (strict mode)
 
-✅ Tests
+Tests
    124 tests, 124 passed, 0 failed
    Test time: 3.2 seconds
 
-🎉 All checks passed! Ready to commit.
+All checks passed! Ready to commit.
 ```
 
-### ❌ With Issues
+### With Issues
 ```
-🎯 Running Elixir audit...
+Running Elixir audit...
 
-✅ Formatting
+Formatting
    All files formatted correctly
 
-❌ Compilation
+Compilation
    warning: variable "user" is unused
      lib/app/leads.ex:42
 
-❌ Credo
-   [D] ↗ Function body is too long (max is 20, was 35).
+Credo
+   [D] Function body is too long (max is 20, was 35).
        lib/app/leads/router.ex:15
 
-✅ Tests
+Tests
    124 tests, 124 passed, 0 failed
 
-❌ Audit failed. Fix issues above.
+Audit failed. Fix issues above.
 ```
 
 ## Fixing Common Issues
@@ -230,11 +235,11 @@ mix format
 # Always run audit before commit
 mix audit  # or the full command
 
-# If passes → commit
+# If passes -> commit
 git add .
 git commit -m "..."
 
-# If fails → fix issues, then commit
+# If fails -> fix issues, then commit
 ```
 
 ### TDD Cycle with Audit
@@ -266,8 +271,8 @@ git commit -m "Refactor ..."
 # Final audit before creating PR
 mix audit
 
-# If fails → fix everything
-# If passes → create PR
+# If fails -> fix everything
+# If passes -> create PR
 ```
 
 ## Axiom-Specific Checks
@@ -309,11 +314,11 @@ See:
 
 ## Common Mistakes
 
-❌ **Skipping audit** - "I'll fix it later"
-❌ **Ignoring credo warnings** - "It's just a suggestion"
-❌ **Committing with warnings** - "It compiles though"
-❌ **Not running tests** - "I only changed docs"
-❌ **Skipping format** - "I'll let CI do it"
+- **Skipping audit** - "I'll fix it later"
+- **Ignoring credo warnings** - "It's just a suggestion"
+- **Committing with warnings** - "It compiles though"
+- **Not running tests** - "I only changed docs"
+- **Skipping format** - "I'll let CI do it"
 
 ## CI/CD Note
 
@@ -346,11 +351,11 @@ mix format
 ## Next Steps
 
 **All checks pass?**
-- ✅ Commit your changes
-- ✅ Create PR if ready
-- ✅ Move to next feature
+- Commit your changes
+- Create PR if ready
+- Move to next feature
 
 **Checks fail?**
-- ❌ Fix issues one by one
-- ❌ Re-run audit after each fix
-- ❌ Don't commit until green
+- Fix issues one by one
+- Re-run audit after each fix
+- Don't commit until green

@@ -1,13 +1,18 @@
+---
+name: refactor-elixir
+description: Improve Elixir code quality while keeping tests green (TDD REFACTOR phase)
+---
+
 # TDD Refactor Phase - Elixir
 
-**Implements:** [tdd-refactor.md](./tdd-refactor.md) (language-agnostic template)
+**Implements:** [tdd-refactor](../tdd-refactor) (language-agnostic template)
 
 ## Purpose
 Improve Elixir code quality while keeping all tests green.
 
 ## Critical Rule
 
-**🚨 ALL TESTS MUST BE GREEN BEFORE REFACTORING**
+**ALL TESTS MUST BE GREEN BEFORE REFACTORING**
 
 Run `MIX_ENV=test mix test` first. If anything fails, fix it or revert.
 
@@ -281,7 +286,7 @@ All tests must pass.
 MIX_ENV=test mix test
 ```
 
-**Tests go red?** → Revert immediately → Try smaller change
+**Tests go red?** -> Revert immediately -> Try smaller change
 
 ### 4. Format Code
 ```bash
@@ -368,11 +373,11 @@ def calculate(_x, _y), do: 0
 
 ## Common Mistakes
 
-❌ **Refactoring while tests are red**
-❌ **Multiple changes at once**
-❌ **Changing behavior**
-❌ **Making code more complex**
-❌ **Not committing frequently**
+- **Refactoring while tests are red**
+- **Multiple changes at once**
+- **Changing behavior**
+- **Making code more complex**
+- **Not committing frequently**
 
 ## Function Length Checklist
 

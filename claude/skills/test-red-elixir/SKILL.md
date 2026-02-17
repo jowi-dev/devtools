@@ -1,6 +1,11 @@
+---
+name: test-red-elixir
+description: Write failing ExUnit test for Elixir (TDD RED phase)
+---
+
 # TDD Red Phase - Elixir
 
-**Implements:** [tdd-red.md](./tdd-red.md) (language-agnostic template)
+**Implements:** [tdd-red](../tdd-red) (language-agnostic template)
 
 ## Purpose
 Write a failing ExUnit test that describes desired Elixir behavior.
@@ -11,8 +16,8 @@ Write a failing ExUnit test that describes desired Elixir behavior.
 **Location:** `test/` directory, mirroring `lib/` structure
 
 ```
-lib/app/leads.ex          →  test/app/leads_test.exs
-lib/app_web/live/foo.ex   →  test/app_web/live/foo_test.exs
+lib/app/leads.ex          ->  test/app/leads_test.exs
+lib/app_web/live/foo.ex   ->  test/app_web/live/foo_test.exs
 ```
 
 **Naming:** `<module_name>_test.exs`
@@ -143,20 +148,20 @@ end
 
 ## Elixir-Specific Anti-Patterns
 
-❌ **Don't destructure everything in test setup**
+**Don't destructure everything in test setup**
 ```elixir
 # Bad
 test "does something", %{user: %User{id: id, name: name, email: email}} do
 ```
 
-✅ **Keep it simple**
+**Keep it simple**
 ```elixir
 # Good
 test "does something", %{user: user} do
   # Use user.id, user.name when needed
 ```
 
-❌ **Don't use pipes in tests unnecessarily**
+**Don't use pipes in tests unnecessarily**
 ```elixir
 # Bad - confusing
 result = attrs |> Accounts.create_user() |> elem(1)
@@ -165,7 +170,7 @@ result = attrs |> Accounts.create_user() |> elem(1)
 {:ok, user} = Accounts.create_user(attrs)
 ```
 
-❌ **Don't test implementation details**
+**Don't test implementation details**
 ```elixir
 # Bad - tests how it works
 test "calls Repo.insert with changeset" do

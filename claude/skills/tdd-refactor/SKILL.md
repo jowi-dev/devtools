@@ -1,3 +1,8 @@
+---
+name: tdd-refactor
+description: Improve code quality while keeping tests green (TDD REFACTOR phase, language-agnostic)
+---
+
 # TDD Refactor Phase (Language-Agnostic Template)
 
 ## Purpose
@@ -148,11 +153,11 @@ def calculate_tax(order):
 
 ## Common Mistakes
 
-❌ **Refactoring while tests are red** - Always start with green
-❌ **Making multiple changes at once** - Small steps, test after each
-❌ **Changing behavior** - Refactor means same behavior, better code
-❌ **Over-engineering** - Keep it simple, don't add complexity
-❌ **Not committing frequently** - Commit after each logical refactor
+- **Refactoring while tests are red** - Always start with green
+- **Making multiple changes at once** - Small steps, test after each
+- **Changing behavior** - Refactor means same behavior, better code
+- **Over-engineering** - Keep it simple, don't add complexity
+- **Not committing frequently** - Commit after each logical refactor
 
 ## The Golden Rule
 
@@ -170,10 +175,10 @@ After refactoring:
 ## Red-Green-Refactor Cycle
 
 ```
-RED    → Write failing test
-GREEN  → Make it pass (simple/ugly is OK)
-REFACTOR → Clean it up (keep tests green)
-↓
+RED    -> Write failing test
+GREEN  -> Make it pass (simple/ugly is OK)
+REFACTOR -> Clean it up (keep tests green)
+|
 Repeat
 ```
 

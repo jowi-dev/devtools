@@ -1,6 +1,11 @@
+---
+name: implement-elixir
+description: Write minimal Elixir code to make failing test pass (TDD GREEN phase)
+---
+
 # TDD Green Phase - Elixir
 
-**Implements:** [tdd-green.md](./tdd-green.md) (language-agnostic template)
+**Implements:** [tdd-green](../tdd-green) (language-agnostic template)
 
 ## Purpose
 Write minimal Elixir code to make the failing test pass.
@@ -11,7 +16,7 @@ Write minimal Elixir code to make the failing test pass.
 **Location:** `lib/` directory
 
 ```
-test/app/leads_test.exs  →  lib/app/leads.ex
+test/app/leads_test.exs  ->  lib/app/leads.ex
 ```
 
 ### 2. Write Module with Documentation
@@ -59,7 +64,7 @@ end
 
 ### 4. Keep Functions SHORT
 
-**🚨 CRITICAL: Bias towards shorter functions**
+**CRITICAL: Bias towards shorter functions**
 
 **Rule of thumb:**
 - **5-10 lines**: Good
@@ -136,11 +141,11 @@ end
 ```
 
 **Benefits of short functions:**
-- ✅ Easier to understand
-- ✅ Easier to test specific behaviors
-- ✅ Easier to reuse
-- ✅ Better error messages (know exactly where it failed)
-- ✅ Self-documenting (function names explain intent)
+- Easier to understand
+- Easier to test specific behaviors
+- Easier to reuse
+- Better error messages (know exactly where it failed)
+- Self-documenting (function names explain intent)
 
 ### 5. Follow Elixir Idioms
 
@@ -270,11 +275,11 @@ end
 
 ## Common Mistakes
 
-❌ **Functions too long** - Extract private functions liberally
-❌ **Missing @doc/@spec** - Required for all public functions
-❌ **Over-engineering** - Don't add untested features
-❌ **Unnecessary pipes** - Don't pipe single function calls
-❌ **Skipping mix format** - Always format before committing
+- **Functions too long** - Extract private functions liberally
+- **Missing @doc/@spec** - Required for all public functions
+- **Over-engineering** - Don't add untested features
+- **Unnecessary pipes** - Don't pipe single function calls
+- **Skipping mix format** - Always format before committing
 
 ## Reference
 

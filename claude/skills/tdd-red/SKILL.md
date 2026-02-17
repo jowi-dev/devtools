@@ -1,3 +1,8 @@
+---
+name: tdd-red
+description: Write a failing test describing desired behavior (TDD RED phase, language-agnostic)
+---
+
 # TDD Red Phase (Language-Agnostic Template)
 
 ## Purpose
@@ -79,11 +84,11 @@ test "calculates 20% discount for premium users":
 
 ## Common Mistakes
 
-❌ **Testing implementation details** - Test behavior, not how it's implemented
-❌ **Testing multiple things** - One test, one behavior
-❌ **Complex test setup** - Keep test data simple
-❌ **Vague test names** - Name should describe the specific behavior
-❌ **Not running the test** - Always verify it fails first
+- **Testing implementation details** - Test behavior, not how it's implemented
+- **Testing multiple things** - One test, one behavior
+- **Complex test setup** - Keep test data simple
+- **Vague test names** - Name should describe the specific behavior
+- **Not running the test** - Always verify it fails first
 
 ## What's Next
 

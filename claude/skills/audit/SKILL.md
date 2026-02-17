@@ -1,3 +1,8 @@
+---
+name: audit
+description: Run language-agnostic quality checks before committing (format, lint, type check, compile, test)
+---
+
 # Audit (Language-Agnostic Template)
 
 ## Purpose
@@ -23,17 +28,17 @@ This is your **pre-flight checklist** - catch issues before they reach code revi
 ## When to Use This Skill
 
 **Run audit:**
-- ✅ Before committing code
-- ✅ After implementing a feature
-- ✅ Before creating a pull request
-- ✅ After refactoring
-- ✅ When you want confidence everything is clean
+- Before committing code
+- After implementing a feature
+- Before creating a pull request
+- After refactoring
+- When you want confidence everything is clean
 
 **Don't skip audit when:**
-- ⚠️ Making production changes
-- ⚠️ Creating pull requests
-- ⚠️ Finishing a feature
-- ⚠️ Unsure if everything is working
+- Making production changes
+- Creating pull requests
+- Finishing a feature
+- Unsure if everything is working
 
 ## Process
 
@@ -89,10 +94,10 @@ This is your **pre-flight checklist** - catch issues before they reach code revi
 
 ### 6. Report Results
 **Summary of:**
-- ✅ What passed
-- ❌ What failed
-- ⚠️ Warnings or concerns
-- 📊 Metrics (coverage, complexity, etc.)
+- What passed
+- What failed
+- Warnings or concerns
+- Metrics (coverage, complexity, etc.)
 
 ## Success Criteria
 
@@ -133,25 +138,25 @@ This template is implemented by:
 ## Example Output
 
 ```
-🎯 Running audit...
+Running audit...
 
-✅ Formatting
+Formatting
    All files formatted correctly
 
-✅ Linting
+Linting
    0 errors, 0 warnings
 
-✅ Type Checking
+Type Checking
    No type errors found
 
-✅ Compilation
+Compilation
    Build successful, 0 warnings
 
-✅ Tests
+Tests
    42 tests, 42 passed, 0 failed
    Coverage: 94% (meets 90% requirement)
 
-🎉 All checks passed! Ready to commit.
+All checks passed! Ready to commit.
 ```
 
 ## Fixing Issues
@@ -185,43 +190,43 @@ Then re-run audit
 
 ## Common Mistakes
 
-❌ **Skipping audit** - "I'll run it later" → You forget
-❌ **Ignoring warnings** - Warnings become errors eventually
-❌ **Committing with failures** - Broken code shouldn't be committed
-❌ **Not reading error messages** - They tell you what's wrong
-❌ **Auto-fixing without understanding** - Know why it was wrong
+- **Skipping audit** - "I'll run it later" -> You forget
+- **Ignoring warnings** - Warnings become errors eventually
+- **Committing with failures** - Broken code shouldn't be committed
+- **Not reading error messages** - They tell you what's wrong
+- **Auto-fixing without understanding** - Know why it was wrong
 
 ## Quality Standards
 
 ### Zero tolerance:
-- ❌ Syntax errors
-- ❌ Type errors
-- ❌ Failing tests
-- ❌ Compilation warnings (if project requires)
+- Syntax errors
+- Type errors
+- Failing tests
+- Compilation warnings (if project requires)
 
 ### Fix before committing:
-- ⚠️ Linting warnings
-- ⚠️ Unused variables/imports
-- ⚠️ Low test coverage (if project requires minimum)
+- Linting warnings
+- Unused variables/imports
+- Low test coverage (if project requires minimum)
 
 ### Can be addressed later:
-- 📝 Complex refactoring suggestions
-- 📝 Performance optimizations
-- 📝 Additional test cases
+- Complex refactoring suggestions
+- Performance optimizations
+- Additional test cases
 
 ## Integration with Workflow
 
 ### TDD Cycle
 ```
-1. /tdd-red → Write test → audit (should fail)
-2. /implement → Fix code → audit (should pass)
-3. /commit-checkpoint → Commit
+1. /tdd-red -> Write test -> audit (should fail)
+2. /implement -> Fix code -> audit (should pass)
+3. /commit-checkpoint -> Commit
 ```
 
 ### Before PR
 ```
 1. Finish all features
-2. /audit → Fix any issues
+2. /audit -> Fix any issues
 3. Create PR
 ```
 
@@ -243,12 +248,12 @@ Many projects run these same checks in CI/CD:
 
 ```
 Write code
-    ↓
+    |
 Run audit
-    ↓
-Issues? → Fix them → Run audit again
-    ↓
-All pass? → Commit
+    |
+Issues? -> Fix them -> Run audit again
+    |
+All pass? -> Commit
 ```
 
 **Don't skip the audit.** It's faster to fix issues now than during code review.

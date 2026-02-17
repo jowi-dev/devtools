@@ -1,3 +1,8 @@
+---
+name: tdd-green
+description: Write minimal code to make failing test pass (TDD GREEN phase, language-agnostic)
+---
+
 # TDD Green Phase (Language-Agnostic Template)
 
 ## Purpose
@@ -100,11 +105,11 @@ Simple, focused, makes the test pass.
 
 ## Common Mistakes
 
-❌ **Over-engineering** - Don't add features not tested yet
-❌ **Premature optimization** - Don't worry about performance yet
-❌ **Fixing all edge cases** - Only handle cases covered by current tests
-❌ **Skipping quality checks** - Always format and lint before committing
-❌ **Not running all tests** - Verify nothing else broke
+- **Over-engineering** - Don't add features not tested yet
+- **Premature optimization** - Don't worry about performance yet
+- **Fixing all edge cases** - Only handle cases covered by current tests
+- **Skipping quality checks** - Always format and lint before committing
+- **Not running all tests** - Verify nothing else broke
 
 ## What's Next
 

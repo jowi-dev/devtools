@@ -1,6 +1,11 @@
+---
+name: commit-checkpoint-elixir
+description: Create checkpoint commits for Elixir development with format/test verification
+---
+
 # Commit Checkpoint - Elixir
 
-**Implements:** [commit-checkpoint.md](./commit-checkpoint.md) (language-agnostic template)
+**Implements:** [commit-checkpoint](../commit-checkpoint) (language-agnostic template)
 
 ## Purpose
 Create checkpoint commits for incremental Elixir development progress.
@@ -169,36 +174,36 @@ Each commit is a checkpoint!
 ## When to Commit (Elixir-Specific)
 
 ### Commit after:
-- ✅ Added one test (`_test.exs` file)
-- ✅ Implemented one function
-- ✅ Refactored one function
-- ✅ Added documentation to one module
-- ✅ Fixed one bug
-- ✅ Added one migration
-- ✅ Updated one schema
-- ✅ Extracted one behavior
-- ✅ Added one config change
+- Added one test (`_test.exs` file)
+- Implemented one function
+- Refactored one function
+- Added documentation to one module
+- Fixed one bug
+- Added one migration
+- Updated one schema
+- Extracted one behavior
+- Added one config change
 
 ### Example commit sizes:
 
 **Good - focused commits:**
 ```
-✅ "Add failing test for user validation"
+"Add failing test for user validation"
    - 1 file: test/app/accounts_test.exs
    - ~20 lines
 
-✅ "Implement user validation"
+"Implement user validation"
    - 1 file: lib/app/accounts.ex
    - ~30 lines
 
-✅ "Extract email validation to private function"
+"Extract email validation to private function"
    - 1 file: lib/app/accounts.ex
    - ~15 lines changed
 ```
 
 **Bad - too large:**
 ```
-❌ "Implement user management"
+"Implement user management"
    - 8 files changed
    - 500+ lines
    - Mixed concerns (validation, auth, emails, tests)
@@ -279,20 +284,20 @@ git commit -m "Add @moduledoc to Partners context"
 
 ## Common Mistakes
 
-❌ **Committing mix.lock unintentionally**
-❌ **Huge commits** - Break into smaller pieces
-❌ **Vague messages** - "Update code" → What code? Why?
-❌ **Skipping mix format**
-❌ **Committing failing tests** (unless red-phase)
-❌ **Including Claude co-author**
+- **Committing mix.lock unintentionally**
+- **Huge commits** - Break into smaller pieces
+- **Vague messages** - "Update code" -> What code? Why?
+- **Skipping mix format**
+- **Committing failing tests** (unless red-phase)
+- **Including Claude co-author**
 
 ## Checkpoint Philosophy Applied
 
 Remember:
-- 🔥 **Bonfire** - Rest at each safe spot
-- 💾 **Save point** - Capture working state often
-- 📸 **Snapshot** - Each commit tells a story
-- 🎮 **Checkpoint** - Don't wait for "done"
+- **Bonfire** - Rest at each safe spot
+- **Save point** - Capture working state often
+- **Snapshot** - Each commit tells a story
+- **Checkpoint** - Don't wait for "done"
 
 **Commits are cheap, work is expensive. Save often!**
 
