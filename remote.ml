@@ -635,6 +635,36 @@ let secret_refresh name =
       );
       printf "Secrets refreshed on %s (sourced from %s)\n" target.name source.name)
 
+let token_refresh name =
+  (* Bootstrap GitHub token into /etc/nix/nix.conf
+   *
+   * When needed:
+   * 1. After adding github-nix-token to an existing machine (secret-refresh/push-secret)
+   * 2. After rotating the GitHub PAT and pushing the new token
+   *
+   * This runs one nixos-rebuild with NIX_CONFIG to bootstrap the token.
+   * The jowi-nix-github module then writes it to nix.conf permanently.
+   * Future deploys work automatically without this command.
+   *)
+  match find name with
+  | None ->
+    printf "Error: Remote '%s' not found. Use 'j remote list' to see configured remotes.\n" name;
+    exit 1
+  | Some remote ->
+    printf "Bootstrapping GitHub token on %s...\n" name;
+    flush stdout;
+    let flake_path = "/etc/nixos/nixos-configs" in
+    let cmd = sprintf
+      "ssh -t %s@%s 'cd %s && TOKEN=$(sudo cat /etc/nixos/secrets/github-nix-token | tr -d \"\\n\") && sudo NIX_CONFIG=\"access-tokens = $TOKEN\" nixos-rebuild switch --flake .#%s --impure'"
+      remote.user remote.host flake_path name in
+    printf "Running bootstrap rebuild...\n";
+    let result = Sys.command cmd in
+    if result <> 0 then (
+      printf "Error: Bootstrap rebuild failed\n";
+      exit 1
+    );
+    printf "Token bootstrapped on %s. Future deploys will work automatically.\n" name
+
 let push_secret filename =
   let local_path = Filename.concat (nixos_configs_root ()) filename in
   if not (file_exists local_path) then (
@@ -691,8 +721,9 @@ let handle_command args =
   | ["screen-off"; name] -> screen_off name
   | ["screen-on"; name] -> screen_on name
   | ["secret-refresh"; name] -> secret_refresh name
+  | ["token-refresh"; name] -> token_refresh name
   | ["push-secret"; filename] -> push_secret filename
   | _ ->
     print_endline "Error: Invalid remote command";
-    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh|push-secret> [args]";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh|token-refresh|push-secret> [args]";
     exit 1

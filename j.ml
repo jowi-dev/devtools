@@ -60,6 +60,9 @@ let show_help () =
   print_endline "  remote setup <build> [--name n]  Deploy build config to init machine and register remote";
   print_endline "  remote screen-off <name>         Turn off screen on remote machine";
   print_endline "  remote screen-on <name>          Turn on screen on remote machine";
+  print_endline "  remote secret-refresh <name>     Pull all secrets from another live machine";
+  print_endline "  remote push-secret <filename>    Push a secret file to all configured remotes";
+  print_endline "  remote token-refresh <name>      Bootstrap GitHub token into nix.conf (needed after adding/rotating token)";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
