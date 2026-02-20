@@ -148,18 +148,10 @@ let deploy name =
       exit 1
     );
 
-    (* Check if github-nix-token exists and bootstrap NIX_CONFIG if needed *)
-    let check_token_cmd = sprintf "ssh %s@%s '[ -f /etc/nixos/secrets/github-nix-token ]'" remote.user remote.host in
-    let has_token = Sys.command check_token_cmd = 0 in
-
-    let rebuild_cmd = if has_token then
-      sprintf "ssh -t %s@%s 'cd %s && TOKEN=$(sudo cat /etc/nixos/secrets/github-nix-token | tr -d \"\\n\") && sudo NIX_CONFIG=\"access-tokens = $TOKEN\" nixos-rebuild switch --flake .#%s --impure'"
-        remote.user remote.host flake_path name
-    else
-      sprintf "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
-        remote.user remote.host flake_path name
-    in
-    printf "\nRebuilding NixOS with flake: %s\n" (if has_token then "(with GitHub token bootstrap)" else rebuild_cmd);
+    let rebuild_cmd = sprintf
+      "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
+      remote.user remote.host flake_path name in
+    printf "\nRebuilding NixOS with flake: %s\n" rebuild_cmd;
     printf "This may take a few minutes (first build will download and compile Rust dependencies)...\n";
     flush stdout;
     let result = Sys.command rebuild_cmd in
@@ -518,8 +510,9 @@ let setup build_name remote_name =
     ) secret_files
   );
 
+  (* Bootstrap GitHub token for nixos-install if available *)
   let install_cmd = sprintf
-    "ssh -t %s@%s 'nixos-install --root /mnt --flake %s#%s --impure --no-root-passwd'"
+    "ssh -t %s@%s 'if [ -f /etc/nixos/secrets/github-nix-token ]; then TOKEN=$(cat /etc/nixos/secrets/github-nix-token | tr -d \"\\n\"); export NIX_CONFIG=\"access-tokens = $TOKEN\"; fi && nixos-install --root /mnt --flake %s#%s --impure --no-root-passwd'"
     user init_host flake_path build_name in
   printf "\nInstalling NixOS with flake config '%s'...\n" build_name;
   printf "This may take a while...\n";
