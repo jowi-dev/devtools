@@ -148,10 +148,18 @@ let deploy name =
       exit 1
     );
 
-    let rebuild_cmd = sprintf
-      "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
-      remote.user remote.host flake_path name in
-    printf "\nRebuilding NixOS with flake: %s\n" rebuild_cmd;
+    (* Check if github-nix-token exists and bootstrap NIX_CONFIG if needed *)
+    let check_token_cmd = sprintf "ssh %s@%s '[ -f /etc/nixos/secrets/github-nix-token ]'" remote.user remote.host in
+    let has_token = Sys.command check_token_cmd = 0 in
+
+    let rebuild_cmd = if has_token then
+      sprintf "ssh -t %s@%s 'cd %s && TOKEN=$(sudo cat /etc/nixos/secrets/github-nix-token | tr -d \"\\n\") && sudo NIX_CONFIG=\"access-tokens = $TOKEN\" nixos-rebuild switch --flake .#%s --impure'"
+        remote.user remote.host flake_path name
+    else
+      sprintf "ssh -t %s@%s 'cd %s && sudo nixos-rebuild switch --flake .#%s --impure'"
+        remote.user remote.host flake_path name
+    in
+    printf "\nRebuilding NixOS with flake: %s\n" (if has_token then "(with GitHub token bootstrap)" else rebuild_cmd);
     printf "This may take a few minutes (first build will download and compile Rust dependencies)...\n";
     flush stdout;
     let result = Sys.command rebuild_cmd in
@@ -497,7 +505,7 @@ let setup build_name remote_name =
     printf "Falling back to local SCP...\n";
     let mkdir_cmd = sprintf "ssh %s@%s 'mkdir -p /etc/nixos/secrets'" user init_host in
     let _ = Sys.command mkdir_cmd in
-    let secret_files = ["github-key"; "wifi-networks.nix"; "user-password.nix"] in
+    let secret_files = ["github-key"; "github-nix-token"; "wifi-networks.nix"; "user-password.nix"] in
     List.iter (fun filename ->
       let path = Filename.concat (nixos_configs_root ()) filename in
       if file_exists path then (
