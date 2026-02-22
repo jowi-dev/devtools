@@ -665,6 +665,35 @@ let token_refresh name =
     );
     printf "Token bootstrapped on %s. Future deploys will work automatically.\n" name
 
+let warm_cache build_name =
+  match find "yoga" with
+  | None ->
+    printf "Error: 'yoga' remote not found. Add it with: j remote add yoga <host> <user>\n";
+    exit 1
+  | Some yoga ->
+    let flake_path = "/etc/nixos/nixos-configs" in
+    printf "Warming Nix cache on yoga (%s@%s) for config '%s'...\n" yoga.user yoga.host build_name;
+    flush stdout;
+    let update_cmd = sprintf "ssh %s@%s 'cd %s && git pull'" yoga.user yoga.host flake_path in
+    printf "Pulling latest configs on yoga...\n";
+    flush stdout;
+    let result = Sys.command update_cmd in
+    if result <> 0 then
+      printf "Warning: git pull failed on yoga, continuing with existing configs...\n";
+    let build_cmd = sprintf
+      "ssh -t %s@%s 'cd %s && nix build .#nixosConfigurations.%s.config.system.build.toplevel --impure'"
+      yoga.user yoga.host flake_path build_name in
+    printf "Building '%s' on yoga (this populates the local nix store)...\n" build_name;
+    printf "Subsequent installs for this config will fetch from yoga's cache.\n";
+    flush stdout;
+    let result = Sys.command build_cmd in
+    if result <> 0 then (
+      printf "Error: nix build failed for '%s' on yoga\n" build_name;
+      exit 1
+    );
+    printf "\nCache warmed for '%s'.\n" build_name;
+    printf "Run 'j remote setup %s' to install a machine using this config.\n" build_name
+
 let push_secret filename =
   let local_path = Filename.concat (nixos_configs_root ()) filename in
   if not (file_exists local_path) then (
@@ -723,7 +752,8 @@ let handle_command args =
   | ["secret-refresh"; name] -> secret_refresh name
   | ["token-refresh"; name] -> token_refresh name
   | ["push-secret"; filename] -> push_secret filename
+  | ["warm-cache"; build] -> warm_cache build
   | _ ->
     print_endline "Error: Invalid remote command";
-    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh|token-refresh|push-secret> [args]";
+    print_endline "Usage: j remote <add|list|pull|deploy|ssh|flash|pull-key|discover|setup|screen-off|screen-on|secret-refresh|token-refresh|push-secret|warm-cache> [args]";
     exit 1

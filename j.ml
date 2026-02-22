@@ -63,6 +63,7 @@ let show_help () =
   print_endline "  remote secret-refresh <name>     Pull all secrets from another live machine";
   print_endline "  remote push-secret <filename>    Push a secret file to all configured remotes";
   print_endline "  remote token-refresh <name>      Bootstrap GitHub token into nix.conf (needed after adding/rotating token)";
+  print_endline "  remote warm-cache <name>         Downloads the latest packages for the specified build on the nix store";
   print_endline "";
   print_endline "Options:";
   print_endline "  --force          Skip timestamp checks and prompts";
