@@ -43,18 +43,21 @@ let read_project_name () =
       find_project_name false
     with Sys_error _ -> None
 
-let search pattern_opt =
+let search pattern_opt dir_opt =
   let pattern = match pattern_opt with
     | Some p -> p
     | None -> "" in
+  let dir = match dir_opt with
+    | Some d -> d
+    | None -> "." in
 
-  printf "Searching current directory for: %s\n" (if pattern = "" then "(all files)" else pattern);
+  printf "Searching %s for: %s\n" dir (if pattern = "" then "(all files)" else pattern);
   flush stdout;
 
   let rg_cmd = if pattern = "" then
-    "rg --line-number --column --no-heading --color=always ."
+    sprintf "rg --line-number --column --no-heading --color=always . \"%s\"" dir
   else
-    sprintf "rg --line-number --column --no-heading --color=always \"%s\"" pattern in
+    sprintf "rg --line-number --column --no-heading --color=always \"%s\" \"%s\"" pattern dir in
 
   let fzf_cmd = sprintf "%s | fzf --ansi --delimiter=: \
     --preview 'bat --color=always --highlight-line {2} {1}' \
@@ -66,13 +69,20 @@ let search pattern_opt =
   if exit_code <> 0 && exit_code <> 130 then
     printf "Search failed or cancelled\n"
 
-let files () =
+let files dir_opt =
+  let dir = match dir_opt with
+    | Some d -> d
+    | None -> "." in
   let has_fd = Sys.command "which fd > /dev/null 2>&1" = 0 in
 
   let find_cmd = if has_fd then
-    "fd --type f --hidden --exclude .git"
+    sprintf "fd --type f --hidden --exclude .git . \"%s\"" dir
   else
-    "find . -type f -not -path '*/\\.git/*'" in
+    let is_git = Sys.command "git rev-parse --is-inside-work-tree > /dev/null 2>&1" = 0 in
+    if is_git then
+      sprintf "git -C \"%s\" ls-files --cached --others --exclude-standard" dir
+    else
+      sprintf "find \"%s\" -type f -not -path '*/\\.git/*'" dir in
 
   let fzf_cmd = sprintf "%s | fzf --preview 'bat --color=always {}' --preview-window 'right:60%%' --bind 'enter:execute(nvim {})'" find_cmd in
 
@@ -146,13 +156,15 @@ let plan topic =
 
 let handle_command args =
   match args with
-  | [] -> search None
-  | ["search"] -> search None
-  | ["search"; pattern] -> search (Some pattern)
-  | ["files"] -> files ()
+  | [] -> search None None
+  | ["search"] -> search None None
+  | ["search"; pattern] -> search (Some pattern) None
+  | ["search"; pattern; dir] -> search (Some pattern) (Some dir)
+  | ["files"] -> files None
+  | ["files"; dir] -> files (Some dir)
   | ["explore"] -> explore ()
   | ["plan"; topic] -> plan topic
   | _ ->
     print_endline "Error: Invalid project command";
-    print_endline "Usage: j project <search [pattern]|files|explore|plan <topic>>";
+    print_endline "Usage: j project <search [pattern] [dir]|files [dir]|explore|plan <topic>>";
     exit 1

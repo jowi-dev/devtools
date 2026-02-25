@@ -7,7 +7,7 @@ let show_help () =
   print_endline "Usage: j [--force] <import|export|install> <package|--all>";
   print_endline "       j config <load|save> [message]";
   print_endline "       j nvim <install|list|update|remove> [plugin-url|plugin-name] [custom-name]";
-  print_endline "       j project <search> [pattern]";
+  print_endline "       j project <search [pattern] [dir]|files [dir]|explore|plan>";
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
   print_endline "       j til <topic|list|search> [pattern]";
   print_endline "       j remote <add|list|pull|deploy|ssh|flash|pull-key|discover> [args]";
@@ -30,8 +30,8 @@ let show_help () =
   print_endline "  nvim remove <name>         Remove plugin submodule";
   print_endline "";
   print_endline "Project Commands:";
-  print_endline "  project search [pattern]   Search files with ripgrep+fzf, open in nvim";
-  print_endline "  project files              Search by file name with fzf, open in nvim";
+  print_endline "  project search [pattern] [dir]  Search files with ripgrep+fzf, open in nvim";
+  print_endline "  project files [dir]             Search by file name with fzf, open in nvim";
   print_endline "  project explore            Open current directory in file explorer (nnn)";
   print_endline "  project plan <topic>       Create/edit project planning doc";
   print_endline "";
