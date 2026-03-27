@@ -1,5 +1,5 @@
 # Build j command
-J_SOURCES = common.ml config.ml nvim.ml project.ml plan.ml til.ml remote.ml j.ml
+J_SOURCES = common.ml config.ml nvim.ml project.ml plan.ml til.ml work.ml remote.ml j.ml
 j: $(J_SOURCES)
 	eval "$$(mise env --shell=bash)" && ocamlopt -I +unix unix.cmxa -o j $(J_SOURCES)
 

@@ -56,6 +56,7 @@ abbr -a jpls j plan save
 abbr -a jtil j til
 abbr -a jtill j til list
 abbr -a jtils j til search
+abbr -a jw j work
 
 # Path additions
 fish_add_path -g /usr/local/bin

@@ -10,6 +10,7 @@ let show_help () =
   print_endline "       j project <search [pattern] [dir]|files [dir]|explore|plan>";
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
   print_endline "       j til <topic|list|search> [pattern]";
+  print_endline "       j work [directory]";
   print_endline "       j remote <add|list|pull|deploy|ssh|flash|pull-key|discover> [args]";
   print_endline "";
   print_endline "Config Commands:";
@@ -47,6 +48,9 @@ let show_help () =
   print_endline "  til list [--public]        List all TIL topics (add --public for published)";
   print_endline "  til search <pattern>       Search across all TILs";
   print_endline "  til export <topic>         Polish and export TIL to public repo";
+  print_endline "";
+  print_endline "Work Commands:";
+  print_endline "  work [directory]       Start/attach tmux session for directory (default: cwd)";
   print_endline "";
   print_endline "Remote NixOS Commands:";
   print_endline "  remote add <name> <host> [user]  Register a remote NixOS machine";
@@ -105,6 +109,7 @@ let () =
   | "project" :: project_args -> Project.handle_command project_args
   | "plan" :: plan_args -> Plan.handle_command plan_args
   | "til" :: til_args -> Til.handle_command til_args
+  | "work" :: work_args -> Work.handle_command work_args
   | "remote" :: remote_args -> Remote.handle_command remote_args
   | [action; package] -> Config.sync_config force_flag action package
   | _ ->
