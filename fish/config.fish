@@ -8,6 +8,11 @@ if test -d /opt/homebrew
     eval (/opt/homebrew/bin/brew shellenv)
 end
 
+# direnv (auto-activate Nix shells)
+if command -v direnv &> /dev/null
+    direnv hook fish | source
+end
+
 # mise (tool version manager)
 if command -v mise &> /dev/null
     mise activate fish | source

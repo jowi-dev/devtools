@@ -21,6 +21,18 @@ map('n',  '<leader>q',  ':bprev<CR>',{noremap=true})
 map('n',  '<leader>p',  ':bnext<CR>',{noremap=true})
 map('n', '<leader><space>', ':nohlsearch<CR>', {noremap=true})
 
+-- fzf-lua keybinds -- PREFIX <leader>f
+map('n', '<leader>ff', ':FzfLua files<CR>', {noremap=true})
+map('n', '<leader>fg', ':FzfLua live_grep<CR>', {noremap=true})
+map('n', '<leader>fb', ':FzfLua buffers<CR>', {noremap=true})
+map('n', '<leader>fh', ':FzfLua help_tags<CR>', {noremap=true})
+map('n', '<leader>fr', ':FzfLua lsp_references<CR>', {noremap=true})
+map('n', '<leader>fs', ':FzfLua lsp_document_symbols<CR>', {noremap=true})
+map('n', '<leader>fw', ':FzfLua lsp_workspace_symbols<CR>', {noremap=true})
+map('n', '<leader>fd', ':FzfLua diagnostics_document<CR>', {noremap=true})
+map('n', '<leader>fo', ':FzfLua oldfiles<CR>', {noremap=true})
+map('n', '<leader>fc', ':FzfLua git_commits<CR>', {noremap=true})
+
 -- LuaSnip Keybinds -- PREFIX s
 map({'i', 's'}, '<leader>x', function() require('luasnip').expand() end, {noremap=true})
 map({'i', 's'}, '<leader>n', function() require('luasnip').jump(1) end, {noremap=true})
@@ -81,7 +93,7 @@ map('n', '<C-t>', '<C-t>', {noremap=true})  -- Jump back from tag
 map('n', '<leader>r', ':!ctags -R . 2>/dev/null<CR>', {noremap=true})  -- Regenerate tags (silenced)
 
 -- Formatting Keybinds -- PREFIX f
-map('n', '<leader>f',   ':lua Format()<CR>',{noremap=true})
+map('n', '<leader>F',   ':lua Format()<CR>',{noremap=true})
 map('n', '<leader>to',   ':lua ElixirOpenTestFile()<CR>',{noremap=true})
 
 

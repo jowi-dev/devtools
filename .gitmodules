@@ -20,3 +20,6 @@
 [submodule "public_logs"]
 	path = public_logs
 	url = git@github.com:jowi-dev/logs_external.git
+[submodule "nvim/pack/plugins/start/fzf-lua"]
+	path = nvim/pack/plugins/start/fzf-lua
+	url = https://github.com/ibhagwan/fzf-lua.git

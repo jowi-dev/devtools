@@ -25,7 +25,11 @@ install:
 	# Install tools from Brewfile
 	@echo "📦 Installing tools from Brewfile..."
 	@brew bundle
-	
+
+	# Install Nix and direnv
+	@$(MAKE) nix
+	@$(MAKE) direnv
+
 	# Check if mise is available, install if not
 	@if ! command -v mise > /dev/null 2>&1; then \
 		echo "📦 Installing mise..."; \
@@ -84,7 +88,32 @@ install:
 	@echo "🎉 Development environment setup complete!"
 	@echo "You can now use 'j' from anywhere to sync your configs."
 
+# Install Nix via Determinate Systems installer (enables flakes by default)
+nix:
+	@if ! command -v nix > /dev/null 2>&1; then \
+		echo "📦 Installing Nix (Determinate Systems)..."; \
+		curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install; \
+		echo "✅ Nix installed. Restart your shell to use it."; \
+	else \
+		echo "✅ Nix already installed"; \
+	fi
+
+# Install direnv for automatic Nix shell activation
+direnv:
+	@if ! command -v direnv > /dev/null 2>&1; then \
+		echo "📦 Installing direnv..."; \
+		brew install direnv; \
+	else \
+		echo "✅ direnv already installed"; \
+	fi
+	@if ! grep -q "direnv hook fish" ~/.config/fish/config.fish 2>/dev/null; then \
+		echo 'direnv hook fish | source' >> ~/.config/fish/config.fish; \
+		echo "✅ direnv fish hook added"; \
+	else \
+		echo "✅ direnv fish hook already configured"; \
+	fi
+
 clean:
 	rm -f j *.cmi *.cmx *.o
 
-.PHONY: install clean
+.PHONY: install clean nix direnv
