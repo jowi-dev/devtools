@@ -21,6 +21,9 @@ map('n',  '<leader>q',  ':bprev<CR>',{noremap=true})
 map('n',  '<leader>p',  ':bnext<CR>',{noremap=true})
 map('n', '<leader><space>', ':nohlsearch<CR>', {noremap=true})
 
+-- nvim-tree keybinds
+map('n', '<leader>l', ':NvimTreeToggle<CR>', {noremap=true})
+
 -- fzf-lua keybinds -- PREFIX <leader>f
 map('n', '<leader>ff', ':FzfLua files<CR>', {noremap=true})
 map('n', '<leader>fg', ':FzfLua live_grep<CR>', {noremap=true})

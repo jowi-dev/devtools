@@ -20,6 +20,9 @@ require("fzf-lua").setup({
   },
 })
 
+-- nvim-tree configuration
+require("nvim-tree").setup()
+
 -- LuaSnip configuration
 -- Load snippets from devtools repo (requires DEVTOOLS_ROOT env var)
 local snippet_path = vim.env.DEVTOOLS_ROOT .. "/snippets/"

@@ -23,3 +23,6 @@
 [submodule "nvim/pack/plugins/start/fzf-lua"]
 	path = nvim/pack/plugins/start/fzf-lua
 	url = https://github.com/ibhagwan/fzf-lua.git
+[submodule "nvim/pack/plugins/start/nvim-tree.lua"]
+	path = nvim/pack/plugins/start/nvim-tree.lua
+	url = https://github.com/nvim-tree/nvim-tree.lua.git
