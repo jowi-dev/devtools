@@ -50,7 +50,10 @@ let show_help () =
   print_endline "  til export <topic>         Polish and export TIL to public repo";
   print_endline "";
   print_endline "Work Commands:";
-  print_endline "  work [directory]       Start/attach tmux session for directory (default: cwd)";
+  print_endline "  work [directory]            Start/attach tmux session for directory (default: cwd)";
+  print_endline "  work new <name> [branch]    Create worktree + tmux session";
+  print_endline "  work remove <name>          Kill tmux session + remove worktree";
+  print_endline "  work list                   Show all sessions with worktree status";
   print_endline "";
   print_endline "Remote NixOS Commands:";
   print_endline "  remote add <name> <host> [user]  Register a remote NixOS machine";

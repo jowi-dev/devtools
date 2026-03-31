@@ -57,6 +57,9 @@ abbr -a jtil j til
 abbr -a jtill j til list
 abbr -a jtils j til search
 abbr -a jw j work
+abbr -a jwn j work new
+abbr -a jwr j work remove
+abbr -a jwl j work list
 
 # Path additions
 fish_add_path -g /usr/local/bin
