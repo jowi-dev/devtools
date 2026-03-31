@@ -13,11 +13,8 @@ case "${1:-}" in
       [ "$name" = "$current" ] && marker="*"
 
       wt=""
-      if [ -d "$path" ]; then
-        git_dir=$(git -C "$path" rev-parse --git-dir 2>/dev/null || true)
-        if [ -n "$git_dir" ] && [ -f "$git_dir" ]; then
-          wt=" [worktree]"
-        fi
+      if [ -d "$path" ] && [ -f "$path/.git" ]; then
+        wt=" [worktree]"
       fi
 
       echo "${marker} ${name}${wt}"
@@ -32,16 +29,23 @@ case "${1:-}" in
     current=$(tmux display-message -p '#S')
     [ "$session" = "$current" ] && exit 0
 
-    # Check if session dir is a worktree, prune if so
+    # Grab the session path before killing (needed for worktree cleanup)
     path=$(tmux display-message -t "$session" -p '#{session_path}' 2>/dev/null || true)
+
+    # Kill session first so processes release the directory
+    tmux kill-session -t "$session" 2>/dev/null || true
+
+    # Then clean up the worktree if applicable
     if [ -n "$path" ] && [ -d "$path" ]; then
-      git_dir=$(git -C "$path" rev-parse --git-dir 2>/dev/null || true)
-      if [ -n "$git_dir" ] && [ -f "$git_dir" ]; then
-        git worktree remove "$path" 2>/dev/null || true
+      # A worktree has a .git file (not directory) pointing to the main repo
+      if [ -f "$path/.git" ]; then
+        main_repo=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||' || true)
+        if [ -n "$main_repo" ]; then
+          git -C "$main_repo" worktree remove --force "$path" 2>/dev/null || rm -rf "$path"
+          git -C "$main_repo" worktree prune 2>/dev/null || true
+        fi
       fi
     fi
-
-    tmux kill-session -t "$session" 2>/dev/null || true
     exit 0
     ;;
 esac
