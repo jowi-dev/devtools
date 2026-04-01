@@ -44,6 +44,15 @@
         };
       };
 
+      packages = {
+        ${systems.darwin}.j = import ./nix/pkgs/j.nix {
+          pkgs = nixpkgs.legacyPackages.${systems.darwin};
+        };
+        ${systems.nixos}.j = import ./nix/pkgs/j.nix {
+          pkgs = nixpkgs.legacyPackages.${systems.nixos};
+        };
+      };
+
       templates = import ./templates/default.nix;
     };
 }
