@@ -106,7 +106,7 @@ let ensure_dir path =
   if not (Sys.file_exists path) then
     let _ = Sys.command (sprintf "mkdir -p '%s'" path) in ()
 
-let worktree_new name branch_opt =
+let worktree_new name branch_opt from_opt =
   let repo_root = git_repo_root () in
   let wt_path = worktree_path name in
 
@@ -122,7 +122,9 @@ let worktree_new name branch_opt =
       if branch_exists_local branch || branch_exists_remote branch then
         sprintf "git worktree add '%s' '%s'" wt_path branch
       else
-        sprintf "git worktree add -b '%s' '%s'" branch wt_path
+        match from_opt with
+        | Some base -> sprintf "git worktree add -b '%s' '%s' '%s'" branch wt_path base
+        | None -> sprintf "git worktree add -b '%s' '%s'" branch wt_path
     in
 
     printf "Creating worktree: %s (branch: %s)\n" wt_path branch;
@@ -189,7 +191,7 @@ let show_help () =
   print_endline "Commands:";
   print_endline "  (no args)              Start/attach tmux session for current directory";
   print_endline "  <directory>            Start/attach tmux session for given directory";
-  print_endline "  new <name> [branch]    Create worktree + tmux session";
+  print_endline "  new <name> [branch] [--from base]  Create worktree + tmux session";
   print_endline "  remove <name>          Kill tmux session + remove worktree";
   print_endline "  list                   Show all tmux sessions with worktree status";
   print_endline "";
@@ -200,8 +202,10 @@ let handle_command args =
   match args with
   | [] -> start (Sys.getcwd ())
   | ["--help"] | ["-h"] -> show_help ()
-  | ["new"; name] -> worktree_new name None
-  | ["new"; name; branch] -> worktree_new name (Some branch)
+  | ["new"; name] -> worktree_new name None None
+  | ["new"; name; "--from"; base] -> worktree_new name None (Some base)
+  | ["new"; name; branch] -> worktree_new name (Some branch) None
+  | ["new"; name; branch; "--from"; base] -> worktree_new name (Some branch) (Some base)
   | ["remove"; name] -> worktree_remove name
   | ["list"] -> worktree_list ()
   | [dir] -> start dir
