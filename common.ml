@@ -10,6 +10,7 @@ let packages = [
   ("ghostty", "ghostty-config", Filename.concat (Sys.getenv "HOME") ".config/ghostty/config");
   ("git", "git-config", Filename.concat (Sys.getenv "HOME") ".config/git/config");
   ("claude", "claude", Filename.concat (Sys.getenv "HOME") ".claude");
+  ("scripts", "scripts", Filename.concat (Sys.getenv "HOME") ".config/tmux/scripts");
 ]
 
 let repo_root =

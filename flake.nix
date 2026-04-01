@@ -19,7 +19,6 @@
 
       commonModules = [
         ./nix/home/common.nix
-        ./nix/home/scripts.nix
       ];
     in
     {
