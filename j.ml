@@ -11,6 +11,7 @@ let show_help () =
   print_endline "       j plan [view|list|save|YYYY-MM-DD]";
   print_endline "       j til <topic|list|search> [pattern]";
   print_endline "       j work [directory]";
+  print_endline "       j ex <dbg>";
   print_endline "       j remote <add|list|pull|deploy|ssh|flash|pull-key|discover> [args]";
   print_endline "";
   print_endline "Config Commands:";
@@ -54,6 +55,9 @@ let show_help () =
   print_endline "  work new <name> [branch]    Create worktree + tmux session";
   print_endline "  work remove <name>          Kill tmux session + remove worktree";
   print_endline "  work list                   Show all sessions with worktree status";
+  print_endline "";
+  print_endline "Elixir Commands:";
+  print_endline "  ex dbg                     Start IEx with pry debugger (iex --dbg pry -S mix)";
   print_endline "";
   print_endline "Remote NixOS Commands:";
   print_endline "  remote add <name> <host> [user]  Register a remote NixOS machine";
@@ -113,6 +117,7 @@ let () =
   | "plan" :: plan_args -> Plan.handle_command plan_args
   | "til" :: til_args -> Til.handle_command til_args
   | "work" :: work_args -> Work.handle_command work_args
+  | "ex" :: elixir_args -> Elixir.handle_command elixir_args
   | "remote" :: remote_args -> Remote.handle_command remote_args
   | [action; package] -> Config.sync_config force_flag action package
   | _ ->
