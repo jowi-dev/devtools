@@ -1,7 +1,7 @@
 
 -- Elixir LSP configuration using expert (official Elixir LS)
 vim.lsp.config('expert', {
-  cmd = { '/Users/jowi/.local/share/mise/installs/http-expert/nightly/expert' },
+  cmd = { '/Users/jowi/.local/share/mise/installs/http-expert/v0.1.4/expert', '--stdio' },
   root_markers = { 'mix.exs', '.git' },
   filetypes = { 'elixir', 'eelixir', 'heex' },
 })
