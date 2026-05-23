@@ -1,17 +1,35 @@
 
--- Elixir LSP configuration using expert (official Elixir LS)
 vim.lsp.config('expert', {
-  cmd = { '/Users/jowi/.local/share/mise/installs/http-expert/v0.1.4/expert', '--stdio' },
+  cmd = { 'expert', '--stdio' },
   root_markers = { 'mix.exs', '.git' },
   filetypes = { 'elixir', 'eelixir', 'heex' },
 })
-
 vim.lsp.enable 'expert'
 
--- Previous elixir-ls config (commented out)
--- vim.lsp.config('elixirls', {
---   cmd = { '/Users/jowi/.local/share/mise/installs/elixir-ls/0.29.3/language_server.sh' },
---   root_markers = { 'mix.exs', '.git' },
---   filetypes = { 'elixir', 'eelixir', 'heex' },
--- })
--- vim.lsp.enable 'elixirls'
+vim.lsp.config('lua_ls', {
+  cmd = { 'lua-language-server' },
+  root_markers = { '.git', '.luarc.json' },
+  filetypes = { 'lua' },
+})
+vim.lsp.enable 'lua_ls'
+
+vim.lsp.config('nixd', {
+  cmd = { 'nixd' },
+  root_markers = { 'flake.nix', '.git' },
+  filetypes = { 'nix' },
+})
+vim.lsp.enable 'nixd'
+
+vim.lsp.config('rust_analyzer', {
+  cmd = { 'rust-analyzer' },
+  root_markers = { 'Cargo.toml', '.git' },
+  filetypes = { 'rust' },
+})
+vim.lsp.enable 'rust_analyzer'
+
+vim.lsp.config('clangd', {
+  cmd = { 'clangd' },
+  root_markers = { 'compile_commands.json', 'compile_flags.txt', '.git' },
+  filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
+})
+vim.lsp.enable 'clangd'

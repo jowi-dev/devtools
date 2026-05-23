@@ -21,6 +21,13 @@ in
     pkgs.starship
     pkgs.universal-ctags
     pkgs.gcc # required for nvim-treesitter auto_install to compile parsers
+
+    # Language servers
+    pkgs.beamPackages.expert # Elixir
+    pkgs.lua-language-server
+    pkgs.nixd
+    pkgs.rust-analyzer
+    pkgs.clang-tools # provides clangd
   ];
 
   home.sessionVariables = {
