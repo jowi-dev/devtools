@@ -17,7 +17,7 @@ pkgs.stdenv.mkDerivation {
 
   buildPhase = ''
     ocamlopt -I +unix unix.cmxa -o j \
-      common.ml config.ml nvim.ml project.ml plan.ml til.ml work.ml remote.ml j.ml
+      common.ml config.ml nvim.ml project.ml plan.ml til.ml work.ml remote.ml elixir.ml j.ml
   '';
 
   installPhase = ''
