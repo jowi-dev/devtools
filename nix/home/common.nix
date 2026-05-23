@@ -13,7 +13,6 @@ in
     pkgs.fzf
     pkgs.bat
     pkgs.tmux
-    pkgs.git-delta
     pkgs.tree
     pkgs.nnn
     pkgs.direnv
