@@ -55,6 +55,7 @@ let show_help () =
   print_endline "  work new <name> [branch]    Create worktree + tmux session";
   print_endline "  work remove <name>          Kill tmux session + remove worktree";
   print_endline "  work list                   Show all sessions with worktree status";
+  print_endline "  work restore                Recreate tmux sessions for all existing worktrees";
   print_endline "";
   print_endline "Elixir Commands:";
   print_endline "  ex dbg                     Start IEx with pry debugger (iex --dbg pry -S mix)";

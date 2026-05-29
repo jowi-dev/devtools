@@ -33,4 +33,5 @@ cask "visual-studio-code"
 cask "ghostty"
 cask "brave-browser"
 cask "claude"
+cask "gcloud-cli"
 

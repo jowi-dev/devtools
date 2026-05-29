@@ -31,11 +31,8 @@ let is_worktree dir =
   match command_output (sprintf "git -C '%s' rev-parse --git-dir 2>/dev/null" dir) with
   | None -> false
   | Some git_dir ->
-    (* In a worktree, --git-dir returns a path to a file, not a directory *)
-    try
-      let stat = Unix.stat git_dir in
-      stat.Unix.st_kind = Unix.S_REG
-    with Unix.Unix_error _ -> false
+    (* Linked worktrees have a 'commondir' file in their git-dir; the main repo does not *)
+    Sys.file_exists (Filename.concat git_dir "commondir")
 
 let worktree_path name =
   Filename.concat (Filename.concat worktrees_root (repo_name ())) name
@@ -185,6 +182,36 @@ let worktree_list () =
     printf "%-20s %-50s %s\n" name path kind
   ) (List.rev !sessions)
 
+let worktree_restore () =
+  if not (Sys.file_exists worktrees_root) then (
+    printf "No worktrees directory found at %s\n" worktrees_root;
+    exit 0
+  );
+  let restored = ref 0 in
+  let skipped = ref 0 in
+  let repo_dirs = Array.to_list (Sys.readdir worktrees_root) in
+  List.iter (fun repo ->
+    let repo_path = Filename.concat worktrees_root repo in
+    if Sys.is_directory repo_path then (
+      let wt_entries = Array.to_list (Sys.readdir repo_path) in
+      List.iter (fun wt_name ->
+        let wt_path = Filename.concat repo_path wt_name in
+        if Sys.is_directory wt_path && is_worktree wt_path then (
+          let session = session_name_of_dir wt_path in
+          if tmux_has_session session then (
+            printf "Already active: %s\n" session;
+            incr skipped
+          ) else (
+            printf "Restoring: %s (%s)\n" session wt_path;
+            tmux_new_session session wt_path;
+            incr restored
+          )
+        )
+      ) wt_entries
+    )
+  ) repo_dirs;
+  printf "\n%d restored, %d already active.\n" !restored !skipped
+
 let show_help () =
   print_endline "Usage: j work [command]";
   print_endline "";
@@ -194,6 +221,7 @@ let show_help () =
   print_endline "  new <name> [branch] [--from base]  Create worktree + tmux session";
   print_endline "  remove <name>          Kill tmux session + remove worktree";
   print_endline "  list                   Show all tmux sessions with worktree status";
+  print_endline "  restore                Recreate tmux sessions for all existing worktrees";
   print_endline "";
   print_endline "Worktrees are created at ~/Worktrees/<repo-name>/<name>/";
   print_endline "Sessions get 4 windows: code, fish, claude, server."
@@ -207,6 +235,7 @@ let handle_command args =
   | ["new"; name; branch] -> worktree_new name (Some branch) None
   | ["new"; name; branch; "--from"; base] -> worktree_new name (Some branch) (Some base)
   | ["remove"; name] -> worktree_remove name
+  | ["restore"] -> worktree_restore ()
   | ["list"] -> worktree_list ()
   | [dir] -> start dir
   | _ -> show_help (); exit 1
