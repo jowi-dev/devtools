@@ -18,7 +18,8 @@ in
     pkgs.mise
     pkgs.starship
     pkgs.universal-ctags
-    pkgs.gcc # required for nvim-treesitter auto_install to compile parsers
+    pkgs.gcc # required for nvim-treesitter to compile parsers
+    pkgs.tree-sitter # tree-sitter CLI (required for :TSInstall)
 
     # Language servers
     pkgs.beamPackages.expert # Elixir
@@ -32,6 +33,9 @@ in
     EDITOR = "nvim";
     VISUAL = "nvim";
     DEVTOOLS_ROOT = "${config.home.homeDirectory}/devtools";
+    NIXOS_CONFIGS_ROOT = if pkgs.stdenv.isDarwin
+      then "${config.home.homeDirectory}/Projects/nixos-configs"
+      else "/etc/nixos/nixos-configs";
     FILE_EXPLORER = "nnn";
     MACHINE_TYPE = "personal";
   };
