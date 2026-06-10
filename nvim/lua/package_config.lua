@@ -1,8 +1,13 @@
--- Treesitter configuration
-require("nvim-treesitter.configs").setup({
-  highlight = { enable = true },
-  ensure_installed = {},
-  auto_install = true
+-- Treesitter configuration (nvim-treesitter v0.10+ API)
+-- highlight/indent/folds are now Neovim-native; setup() only accepts install_dir
+require("nvim-treesitter").setup({})
+
+-- Enable treesitter highlighting for all filetypes
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "*" },
+  callback = function()
+    pcall(vim.treesitter.start)
+  end,
 })
 
 -- fzf-lua configuration
