@@ -2,7 +2,6 @@
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
-  devtoolsRoot = builtins.toString ./../../.;
 in
 {
   home.stateVersion = "24.05";
@@ -32,7 +31,7 @@ in
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
-    DEVTOOLS_ROOT = devtoolsRoot;
+    DEVTOOLS_ROOT = "${config.home.homeDirectory}/devtools";
     FILE_EXPLORER = "nnn";
     MACHINE_TYPE = "personal";
   };
