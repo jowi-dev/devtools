@@ -48,6 +48,8 @@ in
   # nvim-tag-stack is committed directly and is available from the store path.
   programs.neovim = {
     enable = true;
+    withRuby = false;
+    withPython3 = false;
     plugins = with pkgs.vimPlugins; [
       luasnip
       fzf-lua
