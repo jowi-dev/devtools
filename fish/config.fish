@@ -62,12 +62,10 @@ abbr -a jwr j work remove
 abbr -a jwl j work list
 
 # Path additions
+# Note: machine-specific paths are set as universal variables via setup tasks
+# so they propagate to all running fish sessions automatically.
 fish_add_path -g /usr/local/bin
 fish_add_path -g ~/.local/bin
-# opam-managed OCaml tools (ocamllsp, dune)
-if test -d $HOME/.opam/default/bin
-    fish_add_path -g $HOME/.opam/default/bin
-end
 
 # Interactive session customizations
 if status is-interactive

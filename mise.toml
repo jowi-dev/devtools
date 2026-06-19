@@ -36,7 +36,8 @@ opam init --bare --no-setup --yes
 opam switch create default ocaml-system --no-install 2>/dev/null || echo "Switch already exists, continuing..."
 eval "$(opam env)"
 opam install -y ocaml-lsp-server dune
-echo "OCaml tools installed. Run 'j export fish' to update your fish config."
+fish -c "fish_add_path ~/.opam/default/bin" 2>/dev/null || true
+echo "OCaml tools installed. Path set universally — all fish sessions updated."
 """
 
 [tasks.demos]
