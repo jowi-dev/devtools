@@ -1,7 +1,6 @@
 # Build j command
-J_SOURCES = common.ml config.ml nvim.ml project.ml plan.ml til.ml work.ml remote.ml elixir.ml j.ml
-j: $(J_SOURCES)
-	eval "$$(mise env --shell=bash)" && ocamlopt -I +unix unix.cmxa -o j $(J_SOURCES)
+j:
+	nix develop --command dune build && cp _build/default/j.exe j
 
 # Install system dependencies and setup development environment
 install:
@@ -114,6 +113,6 @@ direnv:
 	fi
 
 clean:
-	rm -f j *.cmi *.cmx *.o
+	dune clean && rm -f j
 
 .PHONY: install clean nix direnv

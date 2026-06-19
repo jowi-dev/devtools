@@ -1,6 +1,6 @@
 { pkgs }:
 
-pkgs.stdenv.mkDerivation {
+pkgs.ocamlPackages.buildDunePackage {
   pname = "j";
   version = "0.1.0";
 
@@ -10,20 +10,10 @@ pkgs.stdenv.mkDerivation {
       let
         baseName = builtins.baseNameOf path;
       in
-      builtins.match ".*\\.ml$" baseName != null;
+      builtins.match ".*\\.ml$" baseName != null
+        || baseName == "dune"
+        || baseName == "dune-project";
   };
-
-  nativeBuildInputs = [ pkgs.ocaml ];
-
-  buildPhase = ''
-    ocamlopt -I +unix unix.cmxa -o j \
-      common.ml config.ml nvim.ml project.ml plan.ml til.ml work.ml remote.ml elixir.ml j.ml
-  '';
-
-  installPhase = ''
-    mkdir -p $out/bin
-    cp j $out/bin/
-  '';
 
   meta = {
     description = "Jowi's dev environment sync tool";

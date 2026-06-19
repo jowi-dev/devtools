@@ -20,8 +20,21 @@
       commonModules = [
         ./nix/home/common.nix
       ];
+
+      forEachSystem = f: builtins.mapAttrs (name: system:
+        f nixpkgs.legacyPackages.${system}
+      ) systems;
     in
     {
+      devShells = forEachSystem (pkgs: {
+        default = pkgs.mkShell {
+          buildInputs = with pkgs.ocamlPackages; [
+            pkgs.ocaml
+            dune_3
+          ];
+        };
+      });
+
       homeConfigurations = {
         "jowi@darwin" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.darwin};
