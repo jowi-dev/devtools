@@ -33,3 +33,10 @@ vim.lsp.config('clangd', {
   filetypes = { 'c', 'cpp', 'objc', 'objcpp' },
 })
 vim.lsp.enable 'clangd'
+
+vim.lsp.config('ocamllsp', {
+  cmd = { 'ocamllsp' },
+  root_markers = { 'dune-project', '.git' },
+  filetypes = { 'ocaml', 'ocaml.menhir', 'ocaml.interface', 'ocaml.ocamllex' },
+})
+vim.lsp.enable 'ocamllsp'

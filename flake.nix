@@ -31,6 +31,7 @@
           buildInputs = with pkgs.ocamlPackages; [
             pkgs.ocaml
             dune_3
+            ocaml-lsp
           ];
         };
       });

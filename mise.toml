@@ -14,6 +14,31 @@ macos-x64 = { url = "https://github.com/elixir-lang/expert/releases/download/v0.
 linux-x64 = { url = "https://github.com/elixir-lang/expert/releases/download/v0.1.4/expert_linux_amd64" }
 linux-arm64 = { url = "https://github.com/elixir-lang/expert/releases/download/v0.1.4/expert_linux_arm64" }
 
+# opam - OCaml package manager (provides ocamllsp, dune)
+[tools."http:opam"]
+version = "2.2.1"
+
+[tools."http:opam".platforms]
+macos-arm64 = { url = "https://github.com/ocaml/opam/releases/download/2.2.1/opam-2.2.1-arm64-macos" }
+macos-x64 = { url = "https://github.com/ocaml/opam/releases/download/2.2.1/opam-2.2.1-x86_64-macos" }
+linux-x64 = { url = "https://github.com/ocaml/opam/releases/download/2.2.1/opam-2.2.1-x86_64-linux" }
+linux-arm64 = { url = "https://github.com/ocaml/opam/releases/download/2.2.1/opam-2.2.1-arm64-linux" }
+
+[tasks.setup-ocaml-tools]
+description = "Bootstrap opam and install OCaml dev tools (ocamllsp, dune)"
+run = """
+#!/usr/bin/env bash
+set -e
+eval "$(mise env --shell=bash)"
+# Init opam using the mise-managed OCaml, no shell hook modifications
+opam init --bare --no-setup --yes
+# Create a switch using the OCaml already on PATH from mise
+opam switch create default ocaml-system --no-install 2>/dev/null || echo "Switch already exists, continuing..."
+eval "$(opam env)"
+opam install -y ocaml-lsp-server dune
+echo "OCaml tools installed. Run 'j export fish' to update your fish config."
+"""
+
 [tasks.demos]
 description = "Generate GIFs from all VHS tapes in demos/"
 run = """

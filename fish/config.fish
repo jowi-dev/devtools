@@ -64,6 +64,10 @@ abbr -a jwl j work list
 # Path additions
 fish_add_path -g /usr/local/bin
 fish_add_path -g ~/.local/bin
+# opam-managed OCaml tools (ocamllsp, dune)
+if test -d $HOME/.opam/default/bin
+    fish_add_path -g $HOME/.opam/default/bin
+end
 
 # Interactive session customizations
 if status is-interactive
