@@ -1,4 +1,11 @@
 
+-- Ensure mise shims are in PATH so LSP servers managed by mise are found
+-- regardless of how nvim was launched (GUI, non-interactive shell, etc.)
+local mise_shims = vim.env.HOME .. '/.local/share/mise/shims'
+if not string.find(vim.env.PATH or '', mise_shims, 1, true) then
+  vim.env.PATH = mise_shims .. ':' .. (vim.env.PATH or '')
+end
+
 vim.lsp.config('expert', {
   cmd = { 'expert', '--stdio' },
   root_markers = { 'mix.exs', '.git' },
