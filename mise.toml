@@ -6,7 +6,7 @@ ocaml = "latest"
 
 # Expert - Official Elixir Language Server
 [tools."http:expert"]
-version = "v0.1.4"
+version = "v0.1.5"
 
 [tools."http:expert".platforms]
 macos-arm64 = { url = "https://github.com/elixir-lang/expert/releases/download/v0.1.4/expert_darwin_arm64" }
