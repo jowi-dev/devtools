@@ -13,3 +13,23 @@ j
 
 **/.DS_Store
 .DS_Store
+
+# Claude Code runtime/ephemeral data
+claude/history.jsonl
+claude/sessions/
+claude/projects/
+claude/cache/
+claude/backups/
+claude/debug/
+claude/file-history/
+claude/paste-cache/
+claude/plans/
+claude/plugins/
+claude/shell-snapshots/
+claude/tasks/
+claude/hooks/
+claude/.last-cleanup
+claude/mcp-needs-auth-cache.json
+claude/policy-limits.json
+claude/remote-settings.json
+claude/stats-cache.json

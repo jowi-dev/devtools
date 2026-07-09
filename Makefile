@@ -116,12 +116,11 @@ direnv:
 	fi
 
 # Install thatch and register it as a global Claude Code MCP server
+# CLAUDE.md instructions, hooks, and skills are managed by devtools/claude/ and deployed via j export
 thatch:
 	@echo "📦 Installing thatch..."
 	@npm install -g @jeffober/thatch
 	@mkdir -p ~/.config/thatch
-	@echo "⚙️  Setting up thatch for Claude Code (global)..."
-	@thatch setup --claude --global
 	@echo "⚙️  Registering thatch MCP server with Claude Code..."
 	@claude mcp add --scope user thatch -- $$(which thatch) mcp || echo "⚠️  MCP registration failed — run manually: claude mcp add --scope user thatch -- $$(which thatch) mcp"
 	@echo "✅ Thatch installed and configured"
