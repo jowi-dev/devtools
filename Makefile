@@ -67,6 +67,9 @@ install:
 		echo "✅ MACHINE_TYPE already configured"; \
 	fi
 
+	# Install thatch (persistent memory for AI coding agents)
+	@$(MAKE) thatch
+
 	# Export all configs to system
 	@echo "⚙️  Exporting all configs to system locations..."
 	@j export --all
@@ -112,7 +115,18 @@ direnv:
 		echo "✅ direnv fish hook already configured"; \
 	fi
 
+# Install thatch and register it as a global Claude Code MCP server
+thatch:
+	@echo "📦 Installing thatch..."
+	@npm install -g @jeffober/thatch
+	@mkdir -p ~/.config/thatch
+	@echo "⚙️  Setting up thatch for Claude Code (global)..."
+	@thatch setup --claude --global
+	@echo "⚙️  Registering thatch MCP server with Claude Code..."
+	@claude mcp add --scope user thatch -- $$(which thatch) mcp || echo "⚠️  MCP registration failed — run manually: claude mcp add --scope user thatch -- $$(which thatch) mcp"
+	@echo "✅ Thatch installed and configured"
+
 clean:
 	dune clean && rm -f j
 
-.PHONY: install clean nix direnv
+.PHONY: install clean nix direnv thatch

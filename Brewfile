@@ -26,6 +26,7 @@ brew "hurl"
 brew "chafa"
 brew "flyctl"
 brew "gum"
+brew "bun"
 
 
 # Applications
