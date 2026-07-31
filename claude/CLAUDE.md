@@ -191,3 +191,11 @@ CLAUDE.md, speculative conclusions.
 
 "Remember X" — save immediately.
 "Forget X" — `memory_recall` to find it, then `memory_forget`.
+
+## tm (tskmstr) - Jira/GitHub ticket CLI
+
+`tm` associates Jira tickets with GitHub PRs. When creating a PR in a work
+repo, run `tm pr status --auto-ticket` (or use `tm pr create` instead of
+`gh pr create`) so a Jira ticket is created/linked automatically. Use
+`tm ticket <KEY>` to link an existing ticket to the current branch's PR.
+Requires a one-time `tm auth login`. Never print or log the Jira auth token.

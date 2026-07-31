@@ -1,3 +1,4 @@
 (executable
  (name j)
+ (public_name j)
  (libraries unix))

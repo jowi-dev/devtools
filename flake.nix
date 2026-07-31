@@ -8,9 +8,11 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    tskmstr.url = "github:jowi-dev/tskmstr";
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }:
+  outputs = { self, nixpkgs, home-manager, tskmstr, ... }:
     let
       systems = {
         darwin = "aarch64-darwin";
@@ -39,6 +41,7 @@
       homeConfigurations = {
         "jowi@darwin" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.darwin};
+          extraSpecialArgs = { inherit tskmstr; };
           modules = commonModules ++ [
             {
               home.username = "jowi";
@@ -49,6 +52,7 @@
 
         "jowi@nixos" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.nixos};
+          extraSpecialArgs = { inherit tskmstr; };
           modules = commonModules ++ [
             {
               home.username = "jowi";

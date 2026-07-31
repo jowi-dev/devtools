@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, tskmstr, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
@@ -8,6 +8,7 @@ in
 
   home.packages = [
     j
+    tskmstr.packages.${pkgs.system}.default
     pkgs.ripgrep
     pkgs.fzf
     pkgs.bat
