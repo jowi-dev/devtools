@@ -115,6 +115,18 @@ direnv:
 		echo "✅ direnv fish hook already configured"; \
 	fi
 
+# Apply the home-manager config, installing/updating nix-managed packages
+# (tm, etc.) into ~/.nix-profile. The flake is read from git, so uncommitted
+# changes are invisible to it; ?submodules=1 is required for the nvim-tag-stack
+# submodule.
+switch:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "⚠️  Working tree has uncommitted changes — the flake only sees committed content."; \
+	fi
+	@CONFIG="jowi@$$([ "$$(uname -s)" = "Darwin" ] && echo darwin || echo nixos)"; \
+	echo "🏠 Applying home-manager configuration $$CONFIG..."; \
+	nix run home-manager -- switch --flake "git+file://$$(pwd)?submodules=1#$$CONFIG"
+
 # Install thatch and register it as a global Claude Code MCP server
 # CLAUDE.md instructions, hooks, and skills are managed by devtools/claude/ and deployed via j export
 thatch:
@@ -128,4 +140,4 @@ thatch:
 clean:
 	dune clean && rm -f j
 
-.PHONY: install clean nix direnv thatch
+.PHONY: install clean nix direnv thatch switch
