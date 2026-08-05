@@ -1,4 +1,5 @@
 # Build j command
+.PHONY: j
 j:
 	nix develop --command dune build && cp _build/default/j.exe j
 

@@ -23,9 +23,12 @@
         ./nix/home/common.nix
       ];
 
-      forEachSystem = f: builtins.mapAttrs (name: system:
-        f nixpkgs.legacyPackages.${system}
-      ) systems;
+      # Key outputs by the system string (aarch64-darwin, x86_64-linux) so
+      # standard resolution (`nix develop` with no attr) works on every machine.
+      forEachSystem = f: builtins.listToAttrs (map (system: {
+        name = system;
+        value = f nixpkgs.legacyPackages.${system};
+      }) (builtins.attrValues systems));
     in
     {
       devShells = forEachSystem (pkgs: {

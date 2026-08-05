@@ -56,6 +56,9 @@ let show_help () =
   print_endline "  work remove <name>          Kill tmux session + remove worktree";
   print_endline "  work list                   Show all sessions with worktree status";
   print_endline "  work restore                Recreate tmux sessions for all existing worktrees";
+  print_endline "  work run <name> [ticket] [--from base] [--model m] [--max-turns n]";
+  print_endline "           [--permission-mode mode] [--prompt path]";
+  print_endline "                              Provision (if needed) + run headless Claude lane";
   print_endline "";
   print_endline "Elixir Commands:";
   print_endline "  ex dbg                     Start IEx with pry debugger (iex --dbg pry -S mix)";

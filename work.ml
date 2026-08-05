@@ -103,8 +103,46 @@ let ensure_dir path =
   if not (Sys.file_exists path) then
     let _ = Sys.command (sprintf "mkdir -p '%s'" path) in ()
 
-let worktree_new name branch_opt from_opt =
+(* Create the worktree for [name] (assumes it does not already exist) and
+   symlink .env.local from the main repo. Does not start/attach any tmux
+   session — callers that want a session call [start] afterwards.
+   [from_opt] controls the base of a newly created branch exactly as before:
+   [Some base] passes it through to `git worktree add -b`, [None] omits it so
+   git bases the new branch on the current HEAD. *)
+let provision_worktree name branch_opt from_opt =
   let repo_root = git_repo_root () in
+  let wt_path = worktree_path name in
+
+  ensure_dir (Filename.dirname wt_path);
+
+  let branch = match branch_opt with Some b -> b | None -> name in
+  let cmd =
+    if branch_exists_local branch || branch_exists_remote branch then
+      sprintf "git worktree add '%s' '%s'" wt_path branch
+    else
+      match from_opt with
+      | Some base -> sprintf "git worktree add -b '%s' '%s' '%s'" branch wt_path base
+      | None -> sprintf "git worktree add -b '%s' '%s'" branch wt_path
+  in
+
+  printf "Creating worktree: %s (branch: %s)\n" wt_path branch;
+  let exit_code = Sys.command cmd in
+  if exit_code <> 0 then (
+    eprintf "Error: failed to create worktree\n";
+    exit 1
+  );
+
+  (* Symlink .env.local from main repo if it exists *)
+  let env_local = Filename.concat repo_root ".env.local" in
+  if Sys.file_exists env_local then (
+    let target = Filename.concat wt_path ".env.local" in
+    let _ = Sys.command (sprintf "ln -sf '%s' '%s'" env_local target) in
+    printf "Linked .env.local from main repo\n"
+  );
+
+  wt_path
+
+let worktree_new name branch_opt from_opt =
   let wt_path = worktree_path name in
 
   if Sys.file_exists wt_path then (
@@ -112,33 +150,7 @@ let worktree_new name branch_opt from_opt =
     printf "Attaching to session...\n";
     start wt_path
   ) else (
-    ensure_dir (Filename.dirname wt_path);
-
-    let branch = match branch_opt with Some b -> b | None -> name in
-    let cmd =
-      if branch_exists_local branch || branch_exists_remote branch then
-        sprintf "git worktree add '%s' '%s'" wt_path branch
-      else
-        match from_opt with
-        | Some base -> sprintf "git worktree add -b '%s' '%s' '%s'" branch wt_path base
-        | None -> sprintf "git worktree add -b '%s' '%s'" branch wt_path
-    in
-
-    printf "Creating worktree: %s (branch: %s)\n" wt_path branch;
-    let exit_code = Sys.command cmd in
-    if exit_code <> 0 then (
-      eprintf "Error: failed to create worktree\n";
-      exit 1
-    );
-
-    (* Symlink .env.local from main repo if it exists *)
-    let env_local = Filename.concat repo_root ".env.local" in
-    if Sys.file_exists env_local then (
-      let target = Filename.concat wt_path ".env.local" in
-      let _ = Sys.command (sprintf "ln -sf '%s' '%s'" env_local target) in
-      printf "Linked .env.local from main repo\n"
-    );
-
+    let wt_path = provision_worktree name branch_opt from_opt in
     start wt_path
   )
 
@@ -212,6 +224,213 @@ let worktree_restore () =
   ) repo_dirs;
   printf "\n%d restored, %d already active.\n" !restored !skipped
 
+(* Like [command_output] but reads every line, for multi-line command
+   output (e.g. a `claude` run summary read back out via jq). *)
+let command_output_full cmd =
+  let ic = Unix.open_process_in cmd in
+  let buf = Buffer.create 256 in
+  (try
+    while true do
+      Buffer.add_string buf (input_line ic);
+      Buffer.add_char buf '\n'
+    done
+  with End_of_file -> ());
+  let _ = Unix.close_process_in ic in
+  Buffer.contents buf
+
+let command_ok cmd = Sys.command cmd = 0
+
+(* The repo's default remote branch, e.g. "origin/staging" or "origin/main". *)
+let default_base () =
+  match command_output "git rev-parse --abbrev-ref origin/HEAD 2>/dev/null" with
+  | Some ref when ref <> "" -> ref
+  | _ ->
+    eprintf "Error: could not resolve default branch (git rev-parse --abbrev-ref origin/HEAD)\n";
+    exit 1
+
+let timestamp () =
+  let tm = Unix.localtime (Unix.time ()) in
+  sprintf "%04d%02d%02d-%02d%02d%02d"
+    (tm.Unix.tm_year + 1900) (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
+    tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
+
+let read_file path =
+  let ic = open_in path in
+  let n = in_channel_length ic in
+  let s = really_input_string ic n in
+  close_in ic;
+  s
+
+(* Options for `j work run`, all optional with defaults applied by [run_lane]. *)
+type run_opts = {
+  mutable ticket : string option;
+  mutable from_ : string option;
+  mutable model : string option;
+  mutable max_turns : string option;
+  mutable permission_mode : string option;
+  mutable prompt : string option;
+}
+
+let parse_run_args args =
+  let name = ref None in
+  let opts = { ticket = None; from_ = None; model = None; max_turns = None;
+               permission_mode = None; prompt = None } in
+  let rec go = function
+    | [] -> ()
+    | "--from" :: v :: rest -> opts.from_ <- Some v; go rest
+    | "--model" :: v :: rest -> opts.model <- Some v; go rest
+    | "--max-turns" :: v :: rest -> opts.max_turns <- Some v; go rest
+    | "--permission-mode" :: v :: rest -> opts.permission_mode <- Some v; go rest
+    | "--prompt" :: v :: rest -> opts.prompt <- Some v; go rest
+    | x :: rest ->
+      (if !name = None then name := Some x
+       else if opts.ticket = None then opts.ticket <- Some x);
+      go rest
+  in
+  go args;
+  (!name, opts)
+
+(* Run one autonomous headless Claude Code session in a persistent per-lane
+   worktree. Mirrors the bash reference implementation this replaces:
+   provision the worktree if missing, cut a fresh timestamped branch off the
+   resolved base every run, then invoke `claude -p` with billing-safe env and
+   report the run JSON. *)
+let run_lane name opts =
+  let home = Sys.getenv "HOME" in
+  let prompt_file =
+    match opts.prompt with
+    | Some p -> p
+    | None -> Filename.concat home (sprintf ".claude/prompts/%s.md" name)
+  in
+  let model = match opts.model with Some m -> m | None -> "fable" in
+  let max_turns = match opts.max_turns with Some t -> t | None -> "200" in
+  let permission_mode = match opts.permission_mode with Some m -> m | None -> "acceptEdits" in
+
+  (* --- preflight --- *)
+  if not (Sys.file_exists prompt_file) then (
+    eprintf "Error: no prompt at %s\n" prompt_file;
+    exit 1
+  );
+  if not (command_ok "command -v claude >/dev/null 2>&1") then (
+    eprintf "Error: claude not on PATH\n";
+    exit 1
+  );
+  if not (command_ok "command -v jq >/dev/null 2>&1") then (
+    eprintf "Error: jq not on PATH\n";
+    exit 1
+  );
+  if not (command_ok "claude auth status >/dev/null 2>&1") then (
+    eprintf "Error: not logged in to claude.ai — run 'claude auth login'\n";
+    exit 1
+  );
+
+  let _ = git_repo_root () in
+  let wt_path = worktree_path name in
+
+  (* --- provision if missing --- *)
+  if not (Sys.file_exists wt_path) then (
+    let base = match opts.from_ with Some b -> b | None -> default_base () in
+    let _ = provision_worktree name None (Some base) in
+    ()
+  );
+
+  let _ = Sys.command (sprintf "git -C '%s' fetch --quiet origin" wt_path) in
+
+  (match command_output (sprintf "git -C '%s' status --porcelain" wt_path) with
+   | Some _ ->
+     eprintf "Error: worktree %s is dirty — a previous run may have left work behind; inspect %s\n" wt_path wt_path;
+     exit 1
+   | None -> ());
+
+  (* --- cut this run's branch --- *)
+  let base = match opts.from_ with Some b -> b | None -> default_base () in
+  let branch = sprintf "claude/%s-%s" name (timestamp ()) in
+  let switch_cmd = sprintf "git -C '%s' switch -q -c '%s' '%s'" wt_path branch base in
+  if Sys.command switch_cmd <> 0 then (
+    eprintf "Error: failed to create branch %s from %s\n" branch base;
+    exit 1
+  );
+  printf "worktree: %s  branch: %s\n" wt_path branch;
+
+  (* --- build the prompt --- *)
+  let prompt = read_file prompt_file in
+  let prompt = match opts.ticket with
+    | Some t -> prompt ^ sprintf "\n\nWork ticket: %s." t
+    | None -> prompt
+  in
+
+  let log_dir = Filename.concat home ".local/state/j-work" in
+  ensure_dir log_dir;
+  let stamp = timestamp () in
+  let log = Filename.concat log_dir (sprintf "%s-%s.log" name stamp) in
+  let prompt_tmp = Filename.concat log_dir (sprintf "%s-%s.prompt" name stamp) in
+  let out_json = Filename.concat log_dir (sprintf "%s-%s.json" name stamp) in
+
+  let oc = open_out prompt_tmp in
+  output_string oc prompt;
+  close_out oc;
+
+  (* TSKMSTR: create run row here, export TSKMSTR_RUN_ID so hooks can attribute events *)
+
+  (* NOTE: managed settings may pin a different model than requested — verify
+     the run JSON on first use to confirm --model actually took effect. *)
+  (* Billing safety: these env vars, if present, silently bill the API instead
+     of the claude.ai subscription. `env -u` (macOS/BSD) strips them before
+     claude ever sees them. The prompt itself is never interpolated into this
+     string — it's read from prompt_tmp via command substitution. *)
+  let shell_cmd =
+    sprintf "cd '%s' && env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDECODE claude -p \"$(cat '%s')\" --model '%s' --permission-mode '%s' --output-format json --max-turns '%s' > '%s' 2>> '%s'"
+      wt_path prompt_tmp model permission_mode max_turns out_json log
+  in
+  let status = Sys.command shell_cmd in
+
+  let result = try read_file out_json with Sys_error _ -> "" in
+  let oc = open_out_gen [Open_append; Open_creat] 0o644 log in
+  output_string oc (result ^ "\n");
+  close_out oc;
+
+  (* --- report --- *)
+  if status <> 0 then (
+    eprintf "run FAILED (exit %d) — log: %s\n" status log;
+    let msg = command_output_full (sprintf "jq -r '.result // \"no result field\"' < '%s'" out_json) in
+    eprintf "%s" msg;
+    (* TSKMSTR: tskmstr runs finish "$TSKMSTR_RUN_ID" --status failed --exit-code status *)
+    exit status
+  );
+
+  let jq_field field =
+    match command_output (sprintf "jq -r '.%s // empty' < '%s'" field out_json) with
+    | Some s -> s
+    | None -> ""
+  in
+  let session_id = jq_field "session_id" in
+  let turns = jq_field "num_turns" in
+  let cost = jq_field "total_cost_usd" in
+  let is_err =
+    match command_output (sprintf "jq -r '.is_error // false' < '%s'" out_json) with
+    | Some s -> s
+    | None -> "false"
+  in
+  let summary = command_output_full (sprintf "jq -r '.result // empty' < '%s'" out_json) in
+
+  printf "\n";
+  printf "lane      %s\n" name;
+  printf "worktree  %s\n" wt_path;
+  printf "branch    %s\n" branch;
+  printf "session   %s\n" session_id;
+  printf "turns     %s\n" turns;
+  printf "cost      $%s\n" cost;
+  printf "error     %s\n" is_err;
+  printf "log       %s\n" log;
+  printf "\n";
+  printf "resume:   claude --resume %s\n" session_id;
+  printf "summary:\n";
+  printf "%s" summary;
+
+  (* TSKMSTR: tskmstr runs finish "$TSKMSTR_RUN_ID" --status review --session-id session_id --cost cost --turns turns *)
+
+  if is_err = "true" then exit 1 else exit 0
+
 let show_help () =
   print_endline "Usage: j work [command]";
   print_endline "";
@@ -222,6 +441,9 @@ let show_help () =
   print_endline "  remove <name>          Kill tmux session + remove worktree";
   print_endline "  list                   Show all tmux sessions with worktree status";
   print_endline "  restore                Recreate tmux sessions for all existing worktrees";
+  print_endline "  run <name> [ticket] [--from base] [--model m] [--max-turns n]";
+  print_endline "      [--permission-mode mode] [--prompt path]";
+  print_endline "                         Provision (if needed) + run headless Claude lane";
   print_endline "";
   print_endline "Worktrees are created at ~/Worktrees/<repo-name>/<name>/";
   print_endline "Sessions get 4 windows: code, fish, claude, server."
@@ -237,5 +459,11 @@ let handle_command args =
   | ["remove"; name] -> worktree_remove name
   | ["restore"] -> worktree_restore ()
   | ["list"] -> worktree_list ()
+  | "run" :: run_args ->
+    (match parse_run_args run_args with
+     | (None, _) ->
+       eprintf "Usage: j work run <name> [ticket] [--from base] [--model m] [--max-turns n] [--permission-mode mode] [--prompt path]\n";
+       exit 1
+     | (Some name, opts) -> run_lane name opts)
   | [dir] -> start dir
   | _ -> show_help (); exit 1
