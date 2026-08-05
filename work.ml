@@ -331,12 +331,18 @@ let run_lane name opts =
   );
 
   let _ = git_repo_root () in
-  let wt_path = worktree_path name in
+  (* When a ticket is given, scope the worktree to that ticket so multiple
+     workstreams can run in parallel without colliding on the lane name. *)
+  let wt_name = match opts.ticket with
+    | Some t -> String.lowercase_ascii t
+    | None -> name
+  in
+  let wt_path = worktree_path wt_name in
 
   (* --- provision if missing --- *)
   if not (Sys.file_exists wt_path) then (
     let base = match opts.from_ with Some b -> b | None -> default_base () in
-    let _ = provision_worktree name None (Some base) in
+    let _ = provision_worktree wt_name None (Some base) in
     ()
   );
 
@@ -350,7 +356,7 @@ let run_lane name opts =
 
   (* --- cut this run's branch --- *)
   let base = match opts.from_ with Some b -> b | None -> default_base () in
-  let branch = sprintf "claude/%s-%s" name (timestamp ()) in
+  let branch = sprintf "claude/%s-%s" wt_name (timestamp ()) in
   (* --no-track: without it a branch cut from origin/staging tracks staging,
      and push.default=tracking then sends `git push` straight to staging —
      the exact incident of 2026-08-05. *)
@@ -371,9 +377,9 @@ let run_lane name opts =
   let log_dir = Filename.concat home ".local/state/j-work" in
   ensure_dir log_dir;
   let stamp = timestamp () in
-  let log = Filename.concat log_dir (sprintf "%s-%s.log" name stamp) in
-  let prompt_tmp = Filename.concat log_dir (sprintf "%s-%s.prompt" name stamp) in
-  let out_json = Filename.concat log_dir (sprintf "%s-%s.json" name stamp) in
+  let log = Filename.concat log_dir (sprintf "%s-%s.log" wt_name stamp) in
+  let prompt_tmp = Filename.concat log_dir (sprintf "%s-%s.prompt" wt_name stamp) in
+  let out_json = Filename.concat log_dir (sprintf "%s-%s.json" wt_name stamp) in
 
   let oc = open_out prompt_tmp in
   output_string oc prompt;
@@ -443,7 +449,7 @@ let run_lane name opts =
        script, spawn it detached, and return the terminal immediately.
        `tm runs watch` picks up progress from the run store the wrapper
        writes to; `tail -f <log>` is the fallback for raw output. *)
-    let wrapper = Filename.concat log_dir (sprintf "%s-%s.sh" name stamp) in
+    let wrapper = Filename.concat log_dir (sprintf "%s-%s.sh" wt_name stamp) in
     let ticket_str = match opts.ticket with Some t -> t | None -> "" in
     let tm_available = command_ok "command -v tm >/dev/null 2>&1" in
 
