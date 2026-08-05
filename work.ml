@@ -269,12 +269,13 @@ type run_opts = {
   mutable max_turns : string option;
   mutable permission_mode : string option;
   mutable prompt : string option;
+  mutable fg : bool;
 }
 
 let parse_run_args args =
   let name = ref None in
   let opts = { ticket = None; from_ = None; model = None; max_turns = None;
-               permission_mode = None; prompt = None } in
+               permission_mode = None; prompt = None; fg = false } in
   let rec go = function
     | [] -> ()
     | "--from" :: v :: rest -> opts.from_ <- Some v; go rest
@@ -282,6 +283,7 @@ let parse_run_args args =
     | "--max-turns" :: v :: rest -> opts.max_turns <- Some v; go rest
     | "--permission-mode" :: v :: rest -> opts.permission_mode <- Some v; go rest
     | "--prompt" :: v :: rest -> opts.prompt <- Some v; go rest
+    | "--fg" :: rest -> opts.fg <- true; go rest
     | x :: rest ->
       (if !name = None then name := Some x
        else if opts.ticket = None then opts.ticket <- Some x);
@@ -370,66 +372,139 @@ let run_lane name opts =
   output_string oc prompt;
   close_out oc;
 
-  (* TSKMSTR: create run row here, export TSKMSTR_RUN_ID so hooks can attribute events *)
-
   (* NOTE: managed settings may pin a different model than requested — verify
      the run JSON on first use to confirm --model actually took effect. *)
   (* Billing safety: these env vars, if present, silently bill the API instead
      of the claude.ai subscription. `env -u` (macOS/BSD) strips them before
      claude ever sees them. The prompt itself is never interpolated into this
      string — it's read from prompt_tmp via command substitution. *)
-  let shell_cmd =
-    sprintf "cd '%s' && env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDECODE claude -p \"$(cat '%s')\" --model '%s' --permission-mode '%s' --output-format json --max-turns '%s' > '%s' 2>> '%s'"
-      wt_path prompt_tmp model permission_mode max_turns out_json log
+  let claude_cmd =
+    sprintf "env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDECODE claude -p \"$(cat '%s')\" --model '%s' --permission-mode '%s' --output-format json --max-turns '%s' > '%s' 2>> '%s'"
+      prompt_tmp model permission_mode max_turns out_json log
   in
-  let status = Sys.command shell_cmd in
 
-  let result = try read_file out_json with Sys_error _ -> "" in
-  let oc = open_out_gen [Open_append; Open_creat] 0o644 log in
-  output_string oc (result ^ "\n");
-  close_out oc;
+  if opts.fg then (
+    (* --- foreground: original synchronous behavior, unchanged --- *)
+    let shell_cmd = sprintf "cd '%s' && %s" wt_path claude_cmd in
+    let status = Sys.command shell_cmd in
 
-  (* --- report --- *)
-  if status <> 0 then (
-    eprintf "run FAILED (exit %d) — log: %s\n" status log;
-    let msg = command_output_full (sprintf "jq -r '.result // \"no result field\"' < '%s'" out_json) in
-    eprintf "%s" msg;
-    (* TSKMSTR: tskmstr runs finish "$TSKMSTR_RUN_ID" --status failed --exit-code status *)
-    exit status
-  );
+    let result = try read_file out_json with Sys_error _ -> "" in
+    let oc = open_out_gen [Open_append; Open_creat] 0o644 log in
+    output_string oc (result ^ "\n");
+    close_out oc;
 
-  let jq_field field =
-    match command_output (sprintf "jq -r '.%s // empty' < '%s'" field out_json) with
-    | Some s -> s
-    | None -> ""
-  in
-  let session_id = jq_field "session_id" in
-  let turns = jq_field "num_turns" in
-  let cost = jq_field "total_cost_usd" in
-  let is_err =
-    match command_output (sprintf "jq -r '.is_error // false' < '%s'" out_json) with
-    | Some s -> s
-    | None -> "false"
-  in
-  let summary = command_output_full (sprintf "jq -r '.result // empty' < '%s'" out_json) in
+    (* --- report --- *)
+    if status <> 0 then (
+      eprintf "run FAILED (exit %d) — log: %s\n" status log;
+      let msg = command_output_full (sprintf "jq -r '.result // \"no result field\"' < '%s'" out_json) in
+      eprintf "%s" msg;
+      exit status
+    );
 
-  printf "\n";
-  printf "lane      %s\n" name;
-  printf "worktree  %s\n" wt_path;
-  printf "branch    %s\n" branch;
-  printf "session   %s\n" session_id;
-  printf "turns     %s\n" turns;
-  printf "cost      $%s\n" cost;
-  printf "error     %s\n" is_err;
-  printf "log       %s\n" log;
-  printf "\n";
-  printf "resume:   claude --resume %s\n" session_id;
-  printf "summary:\n";
-  printf "%s" summary;
+    let jq_field field =
+      match command_output (sprintf "jq -r '.%s // empty' < '%s'" field out_json) with
+      | Some s -> s
+      | None -> ""
+    in
+    let session_id = jq_field "session_id" in
+    let turns = jq_field "num_turns" in
+    let cost = jq_field "total_cost_usd" in
+    let is_err =
+      match command_output (sprintf "jq -r '.is_error // false' < '%s'" out_json) with
+      | Some s -> s
+      | None -> "false"
+    in
+    let summary = command_output_full (sprintf "jq -r '.result // empty' < '%s'" out_json) in
 
-  (* TSKMSTR: tskmstr runs finish "$TSKMSTR_RUN_ID" --status review --session-id session_id --cost cost --turns turns *)
+    printf "\n";
+    printf "lane      %s\n" name;
+    printf "worktree  %s\n" wt_path;
+    printf "branch    %s\n" branch;
+    printf "session   %s\n" session_id;
+    printf "turns     %s\n" turns;
+    printf "cost      $%s\n" cost;
+    printf "error     %s\n" is_err;
+    printf "log       %s\n" log;
+    printf "\n";
+    printf "resume:   claude --resume %s\n" session_id;
+    printf "summary:\n";
+    printf "%s" summary;
 
-  if is_err = "true" then exit 1 else exit 0
+    if is_err = "true" then exit 1 else exit 0
+  ) else (
+    (* --- detached (default): hand the whole run lifecycle to a wrapper
+       script, spawn it detached, and return the terminal immediately.
+       `tm runs watch` picks up progress from the run store the wrapper
+       writes to; `tail -f <log>` is the fallback for raw output. *)
+    let wrapper = Filename.concat log_dir (sprintf "%s-%s.sh" name stamp) in
+    let ticket_str = match opts.ticket with Some t -> t | None -> "" in
+    let tm_available = command_ok "command -v tm >/dev/null 2>&1" in
+
+    let wrapper_script =
+      String.concat "\n" [
+        "#!/bin/sh";
+        sprintf "cd '%s' || exit 1" wt_path;
+        "";
+        "RUN_ID=\"\"";
+        sprintf "if [ -n '%s' ] && command -v tm >/dev/null 2>&1; then" ticket_str;
+        sprintf "  RUN_ID=$(tm runs start --ticket '%s' --lane '%s' --worktree '%s' --branch '%s' --pid $$ 2>>'%s')" ticket_str name wt_path branch log;
+        "  if [ -z \"$RUN_ID\" ]; then";
+        sprintf "    echo 'note: tm runs start produced no run id; continuing untracked' >> '%s'" log;
+        "  fi";
+        sprintf "elif [ -n '%s' ]; then" ticket_str;
+        sprintf "  echo 'note: tm not found on PATH at run time; continuing untracked' >> '%s'" log;
+        "fi";
+        "";
+        "if [ -n \"$RUN_ID\" ]; then";
+        "  export TSKMSTR_RUN_ID=\"$RUN_ID\"";
+        "fi";
+        "";
+        claude_cmd;
+        "STATUS=$?";
+        "";
+        "if [ -n \"$RUN_ID\" ]; then";
+        "  SID=\"\"";
+        "  IS_ERR=false";
+        "  if command -v jq >/dev/null 2>&1; then";
+        sprintf "    SID=$(jq -r '.session_id // empty' < '%s' 2>>'%s')" out_json log;
+        (* claude -p can exit 0 while reporting is_error in its result JSON;
+           the foreground path treats that as failure, so the wrapper must too. *)
+        sprintf "    IS_ERR=$(jq -r '.is_error // false' < '%s' 2>>'%s')" out_json log;
+        "  fi";
+        "  if [ \"$STATUS\" -eq 0 ] && [ \"$IS_ERR\" != \"true\" ]; then FINAL_STATUS=done; else FINAL_STATUS=failed; fi";
+        "  if [ -n \"$SID\" ]; then";
+        sprintf "    tm runs finish \"$RUN_ID\" --status \"$FINAL_STATUS\" --session-id \"$SID\" --transcript '%s' 2>>'%s'" out_json log;
+        "  else";
+        sprintf "    tm runs finish \"$RUN_ID\" --status \"$FINAL_STATUS\" --transcript '%s' 2>>'%s'" out_json log;
+        "  fi";
+        "fi";
+        "";
+        "exit $STATUS";
+        "";
+      ]
+    in
+
+    let oc = open_out wrapper in
+    output_string oc wrapper_script;
+    close_out oc;
+    Unix.chmod wrapper 0o755;
+
+    if not tm_available then
+      printf "note: tm not found; run will not appear in tm runs watch\n";
+
+    let spawn_cmd = sprintf "nohup sh '%s' >>'%s' 2>&1 </dev/null &" wrapper log in
+    let _ = Sys.command spawn_cmd in
+
+    printf "started   %s %s on %s\n" name (match opts.ticket with Some t -> t | None -> "-") branch;
+    printf "worktree  %s\n" wt_path;
+    printf "log       %s\n" log;
+    printf "watch:    tm runs watch\n";
+    printf "follow:   tail -f %s\n" log;
+    (match opts.ticket with
+     | Some t -> printf "resume:   tm runs resume %s\n" t
+     | None -> ());
+    exit 0
+  )
 
 let show_help () =
   print_endline "Usage: j work [command]";
@@ -442,8 +517,10 @@ let show_help () =
   print_endline "  list                   Show all tmux sessions with worktree status";
   print_endline "  restore                Recreate tmux sessions for all existing worktrees";
   print_endline "  run <name> [ticket] [--from base] [--model m] [--max-turns n]";
-  print_endline "      [--permission-mode mode] [--prompt path]";
-  print_endline "                         Provision (if needed) + run headless Claude lane";
+  print_endline "      [--permission-mode mode] [--prompt path] [--fg]";
+  print_endline "                         Provision (if needed) + run headless Claude lane,";
+  print_endline "                         detached by default (registers with `tm runs`);";
+  print_endline "                         --fg runs synchronously in the foreground instead";
   print_endline "";
   print_endline "Worktrees are created at ~/Worktrees/<repo-name>/<name>/";
   print_endline "Sessions get 4 windows: code, fish, claude, server."
@@ -462,7 +539,7 @@ let handle_command args =
   | "run" :: run_args ->
     (match parse_run_args run_args with
      | (None, _) ->
-       eprintf "Usage: j work run <name> [ticket] [--from base] [--model m] [--max-turns n] [--permission-mode mode] [--prompt path]\n";
+       eprintf "Usage: j work run <name> [ticket] [--from base] [--model m] [--max-turns n] [--permission-mode mode] [--prompt path] [--fg]\n";
        exit 1
      | (Some name, opts) -> run_lane name opts)
   | [dir] -> start dir
