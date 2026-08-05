@@ -478,18 +478,41 @@ let run_lane name opts =
         "if [ -n \"$RUN_ID\" ]; then";
         "  SID=\"\"";
         "  IS_ERR=false";
+        "  COST=\"\"";
+        "  TURNS=\"\"";
+        "  MODEL_USAGE=\"\"";
+        "  PR_URL=\"\"";
         "  if command -v jq >/dev/null 2>&1; then";
         sprintf "    SID=$(jq -r '.session_id // empty' < '%s' 2>>'%s')" out_json log;
         (* claude -p can exit 0 while reporting is_error in its result JSON;
            the foreground path treats that as failure, so the wrapper must too. *)
         sprintf "    IS_ERR=$(jq -r '.is_error // false' < '%s' 2>>'%s')" out_json log;
+        sprintf "    COST=$(jq -r '.total_cost_usd // empty' < '%s' 2>>'%s')" out_json log;
+        sprintf "    TURNS=$(jq -r '.num_turns // empty' < '%s' 2>>'%s')" out_json log;
+        sprintf "    MODEL_USAGE=$(jq -c '.modelUsage // empty' < '%s' 2>>'%s')" out_json log;
+        "  fi";
+        (* PR URL: prefer asking gh (accurate even if the summary text never
+           mentions the URL); fall back to scraping the result text. Both
+           paths degrade to empty on any failure — never fatal. *)
+        "  if command -v gh >/dev/null 2>&1; then";
+        sprintf "    PR_URL=$(gh pr list --head '%s' --json url -q '.[0].url' 2>>'%s')" branch log;
+        "  fi";
+        "  if [ -z \"$PR_URL\" ] && command -v jq >/dev/null 2>&1; then";
+        sprintf "    PR_URL=$(jq -r '.result // \"\"' < '%s' 2>>'%s' | grep -oE 'https://github[^ )]*/pull/[0-9]+' | head -1)" out_json log;
         "  fi";
         "  if [ \"$STATUS\" -eq 0 ] && [ \"$IS_ERR\" != \"true\" ]; then FINAL_STATUS=done; else FINAL_STATUS=failed; fi";
-        "  if [ -n \"$SID\" ]; then";
-        sprintf "    tm runs finish \"$RUN_ID\" --status \"$FINAL_STATUS\" --session-id \"$SID\" --transcript '%s' 2>>'%s'" out_json log;
-        "  else";
-        sprintf "    tm runs finish \"$RUN_ID\" --status \"$FINAL_STATUS\" --transcript '%s' 2>>'%s'" out_json log;
+        "  set -- \"$RUN_ID\" --status \"$FINAL_STATUS\"";
+        "  if [ -n \"$SID\" ]; then set -- \"$@\" --session-id \"$SID\"; fi";
+        sprintf "  set -- \"$@\" --transcript '%s'" out_json;
+        "  if [ -n \"$COST\" ]; then set -- \"$@\" --cost-usd \"$COST\"; fi";
+        "  if [ -n \"$TURNS\" ]; then set -- \"$@\" --num-turns \"$TURNS\"; fi";
+        "  if [ -n \"$PR_URL\" ]; then set -- \"$@\" --pr-url \"$PR_URL\"; fi";
+        (* --model-usage is not in every installed tm yet; only pass it when
+           the running tm's own --help says it supports it. *)
+        "  if [ -n \"$MODEL_USAGE\" ] && tm runs finish --help 2>/dev/null | grep -q -- --model-usage; then";
+        "    set -- \"$@\" --model-usage \"$MODEL_USAGE\"";
         "  fi";
+        sprintf "  tm runs finish \"$@\" 2>>'%s'" log;
         "fi";
         "";
         "exit $STATUS";
