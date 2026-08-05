@@ -121,7 +121,11 @@ let provision_worktree name branch_opt from_opt =
       sprintf "git worktree add '%s' '%s'" wt_path branch
     else
       match from_opt with
-      | Some base -> sprintf "git worktree add -b '%s' '%s' '%s'" branch wt_path base
+      (* --no-track: a branch cut from origin/<base> must NOT inherit it as
+         upstream — with push.default=tracking that makes a later push land
+         directly on the base branch (bit damascus 2026-07-30 and an
+         autonomous axiom lane 2026-08-05). *)
+      | Some base -> sprintf "git worktree add --no-track -b '%s' '%s' '%s'" branch wt_path base
       | None -> sprintf "git worktree add -b '%s' '%s'" branch wt_path
   in
 
@@ -347,7 +351,10 @@ let run_lane name opts =
   (* --- cut this run's branch --- *)
   let base = match opts.from_ with Some b -> b | None -> default_base () in
   let branch = sprintf "claude/%s-%s" name (timestamp ()) in
-  let switch_cmd = sprintf "git -C '%s' switch -q -c '%s' '%s'" wt_path branch base in
+  (* --no-track: without it a branch cut from origin/staging tracks staging,
+     and push.default=tracking then sends `git push` straight to staging —
+     the exact incident of 2026-08-05. *)
+  let switch_cmd = sprintf "git -C '%s' switch -q --no-track -c '%s' '%s'" wt_path branch base in
   if Sys.command switch_cmd <> 0 then (
     eprintf "Error: failed to create branch %s from %s\n" branch base;
     exit 1
