@@ -10,9 +10,13 @@
     };
 
     tskmstr.url = "github:jowi-dev/tskmstr";
+
+    # Separate pin for graphify: the main nixpkgs pin predates the package,
+    # and this rev is verified to build it with nix/pkgs/graphify.nix's fixes.
+    nixpkgs-graphify.url = "github:NixOS/nixpkgs/104240a772428cc2e20d8fd86c9ddbb886bbaff2";
   };
 
-  outputs = { self, nixpkgs, home-manager, tskmstr, ... }:
+  outputs = { self, nixpkgs, home-manager, tskmstr, nixpkgs-graphify, ... }:
     let
       systems = {
         darwin = "aarch64-darwin";
@@ -44,7 +48,7 @@
       homeConfigurations = {
         "jowi@darwin" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.darwin};
-          extraSpecialArgs = { inherit tskmstr; };
+          extraSpecialArgs = { inherit tskmstr nixpkgs-graphify; };
           modules = commonModules ++ [
             {
               home.username = "jowi";
@@ -55,7 +59,7 @@
 
         "jowi@nixos" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.nixos};
-          extraSpecialArgs = { inherit tskmstr; };
+          extraSpecialArgs = { inherit tskmstr nixpkgs-graphify; };
           modules = commonModules ++ [
             {
               home.username = "jowi";

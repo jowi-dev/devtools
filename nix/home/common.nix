@@ -1,13 +1,15 @@
-{ config, pkgs, lib, tskmstr, ... }:
+{ config, pkgs, lib, tskmstr, nixpkgs-graphify, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
+  graphify = import ../pkgs/graphify.nix { inherit nixpkgs-graphify; inherit (pkgs) system; };
 in
 {
   home.stateVersion = "24.05";
 
   home.packages = [
     j
+    graphify
     tskmstr.packages.${pkgs.system}.default
     pkgs.ripgrep
     pkgs.fzf
