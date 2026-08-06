@@ -199,3 +199,6 @@ repo, run `tm pr status --auto-ticket` (or use `tm pr create` instead of
 `gh pr create`) so a Jira ticket is created/linked automatically. Use
 `tm ticket <KEY>` to link an existing ticket to the current branch's PR.
 Requires a one-time `tm auth login`. Never print or log the Jira auth token.
+# graphify
+- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
+When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` before doing anything else.
