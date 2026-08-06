@@ -38,12 +38,16 @@ CURRENT=$(cat "$STATE_FILE" 2>/dev/null)
 [ -z "$CURRENT" ] && CURRENT='{}'
 printf '%s' "$CURRENT" | jq -e . >/dev/null 2>&1 || CURRENT='{}'
 
-# The tool's result text carries the task id this call touched, e.g.
-# "Task #7 created successfully: <subject>" or "Updated task #7 status".
-# Different Claude Code versions have exposed this under different field
-# names (tool_response vs tool_output) — check both.
-RESPONSE_TEXT=$(printf '%s' "$INPUT" | jq -r '(.tool_response // .tool_output // "") | if type == "string" then . else tostring end' 2>/dev/null)
-RESPONSE_TASK_ID=$(printf '%s' "$RESPONSE_TEXT" | grep -oE 'Task #[0-9]+' | head -1 | tr -d 'Task #')
+# The created task's id lives in the structured response
+# (.tool_response.task.id — the "Task #7 created successfully" text the
+# model sees is rendering only and never reaches the hook payload). Older
+# Claude Code versions exposed a plain-text response under tool_response or
+# tool_output, so fall back to parsing "Task #N" out of the response text.
+RESPONSE_TASK_ID=$(printf '%s' "$INPUT" | jq -r '.tool_response.task.id // empty' 2>/dev/null)
+if [ -z "$RESPONSE_TASK_ID" ]; then
+  RESPONSE_TEXT=$(printf '%s' "$INPUT" | jq -r '(.tool_response // .tool_output // "") | if type == "string" then . else tostring end' 2>/dev/null)
+  RESPONSE_TASK_ID=$(printf '%s' "$RESPONSE_TEXT" | grep -oE 'Task #[0-9]+' | head -1 | tr -d 'Task #')
+fi
 
 UPDATED=""
 
