@@ -265,6 +265,67 @@ let read_file path =
   close_in ic;
   s
 
+(* --- tm run-telemetry hooks ---
+   These hooks are TSKMSTR_RUN_ID-gated (no-ops outside a lane run), so they
+   travel with the runner rather than living inside each project repo's
+   .claude — a lane run executes in a git worktree on a fresh branch, and any
+   uncommitted-or-unmerged .claude changes in the source repo silently don't
+   apply there. Source of truth is <devtools repo>/claude-hooks/; each run
+   deploys a fresh copy to a stable path and generates a settings file the
+   claude invocation loads via --settings, wiring the exact same matchers
+   project .claude/settings.json files used to wire directly. *)
+let tm_hooks_deploy_dir = Filename.concat (Sys.getenv "HOME") ".local/share/j-work/hooks"
+let tm_hooks_settings_path = Filename.concat (Sys.getenv "HOME") ".local/share/j-work/tm-hooks-settings.json"
+let tm_hook_names = ["tm-event.sh"; "tm-checklist.sh"; "tm-usage.sh"; "tm-tasklist.sh"; "guard-delegate.sh"]
+
+(* Copy each tracked hook script from the devtools repo into the stable
+   runtime location and (re)generate the settings file that wires them,
+   using absolute paths so it works regardless of the lane worktree's cwd.
+   Cheap and idempotent — safe to call on every run. Returns the settings
+   file path to hand to `claude --settings`. *)
+let deploy_tm_hooks () =
+  ensure_dir tm_hooks_deploy_dir;
+  List.iter (fun hook_name ->
+    let src = Filename.concat (Filename.concat Common.repo_root "claude-hooks") hook_name in
+    let dst = Filename.concat tm_hooks_deploy_dir hook_name in
+    let _ = Sys.command (sprintf "cp '%s' '%s'" src dst) in
+    Unix.chmod dst 0o755
+  ) tm_hook_names;
+
+  let hook_path name = Filename.concat tm_hooks_deploy_dir name in
+  let cmd_entry name = sprintf "{ \"type\": \"command\", \"command\": \"%s\" }" (hook_path name) in
+  let settings_json = sprintf "{
+  \"hooks\": {
+    \"PreToolUse\": [
+      { \"matcher\": \"Edit|Write|MultiEdit|NotebookEdit\", \"hooks\": [ %s ] }
+    ],
+    \"PostToolUse\": [
+      { \"matcher\": \"TodoWrite\", \"hooks\": [ %s ] },
+      { \"matcher\": \"TaskCreate|TaskUpdate\", \"hooks\": [ %s ] },
+      { \"matcher\": \"*\", \"hooks\": [ %s ] }
+    ],
+    \"Stop\": [
+      { \"hooks\": [ %s ] }
+    ],
+    \"SubagentStop\": [
+      { \"hooks\": [ %s ] }
+    ]
+  }
+}
+"
+    (cmd_entry "guard-delegate.sh")
+    (cmd_entry "tm-checklist.sh")
+    (cmd_entry "tm-tasklist.sh")
+    (cmd_entry "tm-event.sh")
+    (cmd_entry "tm-usage.sh")
+    (cmd_entry "tm-usage.sh")
+  in
+  ensure_dir (Filename.dirname tm_hooks_settings_path);
+  let oc = open_out tm_hooks_settings_path in
+  output_string oc settings_json;
+  close_out oc;
+  tm_hooks_settings_path
+
 (* Options for `j work run`, all optional with defaults applied by [run_lane]. *)
 type run_opts = {
   mutable ticket : string option;
@@ -308,7 +369,6 @@ let run_lane name opts =
     | Some p -> p
     | None -> Filename.concat home (sprintf ".claude/prompts/%s.md" name)
   in
-  let model = match opts.model with Some m -> m | None -> "fable" in
   let max_turns = match opts.max_turns with Some t -> t | None -> "200" in
   let permission_mode = match opts.permission_mode with Some m -> m | None -> "acceptEdits" in
 
@@ -387,13 +447,26 @@ let run_lane name opts =
 
   (* NOTE: managed settings may pin a different model than requested — verify
      the run JSON on first use to confirm --model actually took effect. *)
+  (* Lane drivers stay pinned to fable unless --model overrides it (for
+     A/B-testing drivers, e.g. sonnet vs opus vs fable) — an explicit pin
+     keeps runs reproducible regardless of the session-default model
+     configured in claude itself. Quoted the same naive single-quote way as
+     prompt_tmp/permission_mode/etc below — this repo doesn't escape
+     embedded quotes in any of these interpolations. *)
+  let model = match opts.model with Some m -> m | None -> "fable" in
+  let model_arg = sprintf " --model '%s'" model in
+  (* Deploy the tm run-telemetry hooks to their stable runtime location and
+     load them via --settings, rather than relying on whatever .claude a
+     given worktree happens to have checked out (see deploy_tm_hooks above). *)
+  let tm_hooks_settings = deploy_tm_hooks () in
+  let settings_arg = sprintf " --settings '%s'" tm_hooks_settings in
   (* Billing safety: these env vars, if present, silently bill the API instead
      of the claude.ai subscription. `env -u` (macOS/BSD) strips them before
      claude ever sees them. The prompt itself is never interpolated into this
      string — it's read from prompt_tmp via command substitution. *)
   let claude_cmd =
-    sprintf "env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDECODE claude -p \"$(cat '%s')\" --model '%s' --permission-mode '%s' --output-format json --max-turns '%s' > '%s' 2>> '%s'"
-      prompt_tmp model permission_mode max_turns out_json log
+    sprintf "env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDECODE claude -p \"$(cat '%s')\"%s%s --permission-mode '%s' --output-format json --max-turns '%s' > '%s' 2>> '%s'"
+      prompt_tmp model_arg settings_arg permission_mode max_turns out_json log
   in
 
   if opts.fg then (
@@ -453,8 +526,17 @@ let run_lane name opts =
     let ticket_str = match opts.ticket with Some t -> t | None -> "" in
     let tm_available = command_ok "command -v tm >/dev/null 2>&1" in
 
+    (* One-line attribution note in the run log when a non-default model was
+       requested, so runs are attributable when reviewing logs later; omitted
+       entirely when no --model was given (tm's --model-usage at finish is
+       the real per-model attribution source — this is just a log breadcrumb). *)
+    let model_note = match opts.model with
+      | Some m -> [sprintf "echo 'driver model: %s' >> '%s'" m log]
+      | None -> []
+    in
+
     let wrapper_script =
-      String.concat "\n" [
+      String.concat "\n" ([
         "#!/bin/sh";
         sprintf "cd '%s' || exit 1" wt_path;
         "";
@@ -472,6 +554,7 @@ let run_lane name opts =
         "  export TSKMSTR_RUN_ID=\"$RUN_ID\"";
         "fi";
         "";
+      ] @ model_note @ [
         claude_cmd;
         "STATUS=$?";
         "";
@@ -517,7 +600,7 @@ let run_lane name opts =
         "";
         "exit $STATUS";
         "";
-      ]
+      ])
     in
 
     let oc = open_out wrapper in
