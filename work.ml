@@ -244,6 +244,48 @@ let command_output_full cmd =
 
 let command_ok cmd = Sys.command cmd = 0
 
+(* Sanitize a resolved branch-owner candidate for use as a branch-name
+   segment: trim whitespace and strip anything outside [A-Za-z0-9-_.] (case
+   is preserved — GitHub handles are case-insensitive but display matters). *)
+let sanitize_branch_owner s =
+  let s = String.trim s in
+  let buf = Buffer.create (String.length s) in
+  String.iter (fun c ->
+    match c with
+    | 'a'..'z' | 'A'..'Z' | '0'..'9' | '-' | '_' | '.' -> Buffer.add_char buf c
+    | _ -> ()
+  ) s;
+  Buffer.contents buf
+
+(* Resolve the branch-owner prefix used when cutting lane run branches, so
+   teammates can tell whose branch a run produced. First hit wins:
+     1. `git config --get j.branchOwner` — explicit per-machine override,
+        e.g. `git config --global j.branchOwner jowi-dev`.
+     2. `gh api user -q .login` — the authoritative GitHub handle for
+        whoever's `gh` session is active. Hits the network, but only once
+        per run_lane invocation, at run start, which is an acceptable cost.
+     3. `git config --get github.user` — a common local convention some
+        setups already populate.
+     4. "claude" — fallback so runs never fail on naming.
+   Never returns an empty string: an empty resolution falls through to the
+   next source, and ultimately to the "claude" literal. *)
+let branch_owner () =
+  let non_empty = function
+    | Some s ->
+      let s = sanitize_branch_owner s in
+      if s = "" then None else Some s
+    | None -> None
+  in
+  match non_empty (command_output "git config --get j.branchOwner 2>/dev/null") with
+  | Some s -> s
+  | None ->
+    match non_empty (command_output "gh api user -q .login 2>/dev/null") with
+    | Some s -> s
+    | None ->
+      match non_empty (command_output "git config --get github.user 2>/dev/null") with
+      | Some s -> s
+      | None -> "claude"
+
 (* The repo's default remote branch, e.g. "origin/staging" or "origin/main". *)
 let default_base () =
   match command_output "git rev-parse --abbrev-ref origin/HEAD 2>/dev/null" with
@@ -416,7 +458,8 @@ let run_lane name opts =
 
   (* --- cut this run's branch --- *)
   let base = match opts.from_ with Some b -> b | None -> default_base () in
-  let branch = sprintf "claude/%s-%s" wt_name (timestamp ()) in
+  let owner = branch_owner () in
+  let branch = sprintf "%s/%s-%s" owner wt_name (timestamp ()) in
   (* --no-track: without it a branch cut from origin/staging tracks staging,
      and push.default=tracking then sends `git push` straight to staging —
      the exact incident of 2026-08-05. *)
