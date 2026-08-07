@@ -308,17 +308,19 @@ let read_file path =
   s
 
 (* --- tm run-telemetry hooks ---
-   These hooks are TSKMSTR_RUN_ID-gated (no-ops outside a lane run), so they
-   travel with the runner rather than living inside each project repo's
-   .claude — a lane run executes in a git worktree on a fresh branch, and any
-   uncommitted-or-unmerged .claude changes in the source repo silently don't
-   apply there. Source of truth is <devtools repo>/claude-hooks/; each run
-   deploys a fresh copy to a stable path and generates a settings file the
-   claude invocation loads via --settings, wiring the exact same matchers
-   project .claude/settings.json files used to wire directly. *)
+   Most of these hooks are TSKMSTR_RUN_ID-gated (no-ops outside a lane run);
+   graphify-nudge.sh is instead gated on graphify-out/graph.json existing in
+   cwd, so it also no-ops cleanly for lanes/repos without a graph. Either
+   way they travel with the runner rather than living inside each project
+   repo's .claude — a lane run executes in a git worktree on a fresh branch,
+   and any uncommitted-or-unmerged .claude changes in the source repo
+   silently don't apply there. Source of truth is <devtools repo>/claude-hooks/;
+   each run deploys a fresh copy to a stable path and generates a settings
+   file the claude invocation loads via --settings, wiring the exact same
+   matchers project .claude/settings.json files used to wire directly. *)
 let tm_hooks_deploy_dir = Filename.concat (Sys.getenv "HOME") ".local/share/j-work/hooks"
 let tm_hooks_settings_path = Filename.concat (Sys.getenv "HOME") ".local/share/j-work/tm-hooks-settings.json"
-let tm_hook_names = ["tm-event.sh"; "tm-checklist.sh"; "tm-usage.sh"; "tm-tasklist.sh"; "guard-delegate.sh"]
+let tm_hook_names = ["tm-event.sh"; "tm-checklist.sh"; "tm-usage.sh"; "tm-tasklist.sh"; "guard-delegate.sh"; "graphify-nudge.sh"]
 
 (* Copy each tracked hook script from the devtools repo into the stable
    runtime location and (re)generate the settings file that wires them,
@@ -339,7 +341,8 @@ let deploy_tm_hooks () =
   let settings_json = sprintf "{
   \"hooks\": {
     \"PreToolUse\": [
-      { \"matcher\": \"Edit|Write|MultiEdit|NotebookEdit\", \"hooks\": [ %s ] }
+      { \"matcher\": \"Edit|Write|MultiEdit|NotebookEdit\", \"hooks\": [ %s ] },
+      { \"matcher\": \"Bash|Grep\", \"hooks\": [ %s ] }
     ],
     \"PostToolUse\": [
       { \"matcher\": \"TodoWrite\", \"hooks\": [ %s ] },
@@ -356,6 +359,7 @@ let deploy_tm_hooks () =
 }
 "
     (cmd_entry "guard-delegate.sh")
+    (cmd_entry "graphify-nudge.sh")
     (cmd_entry "tm-checklist.sh")
     (cmd_entry "tm-tasklist.sh")
     (cmd_entry "tm-event.sh")
