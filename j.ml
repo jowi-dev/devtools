@@ -122,7 +122,11 @@ let () =
   | "project" :: project_args -> Project.handle_command project_args
   | "plan" :: plan_args -> Plan.handle_command plan_args
   | "til" :: til_args -> Til.handle_command til_args
-  | "work" :: work_args -> Work.handle_command work_args
+  (* Cutover shim: the lane runner lives in tskmstr now (its
+     docs/decisions/0002-runner-absorption.md). work.ml stays in this repo
+     as the retired OCaml reference implementation only. *)
+  | "work" :: work_args ->
+    Unix.execvp "tm" (Array.of_list ("tm" :: "work" :: work_args))
   | "ex" :: elixir_args -> Elixir.handle_command elixir_args
   | "remote" :: remote_args -> Remote.handle_command remote_args
   | [action; package] -> Config.sync_config force_flag action package
