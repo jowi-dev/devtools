@@ -85,11 +85,13 @@ list_plain() {
   local current idx=0
   current=$(tmux display-message -p '#S' 2>/dev/null || true)
 
-  while IFS='|' read -r name path; do
+  while IFS='|' read -r name path attn; do
     idx=$((idx + 1))
 
     local marker="-"
     [ "$name" = "$current" ] && marker="*"
+
+    [ -n "$attn" ] || attn="-"
 
     local wt="-"
     if [ -d "$path" ] && [ -f "$path/.git" ]; then
@@ -104,8 +106,8 @@ list_plain() {
       '[detached]') status="detached" ;;
     esac
 
-    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$wt" "$branch" "$status"
-  done < <(tmux list-sessions -F '#{session_name}|#{session_path}' 2>/dev/null)
+    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$attn" "$wt" "$branch" "$status"
+  done < <(tmux list-sessions -F '#{session_name}|#{session_path}|#{@picker_status}' 2>/dev/null)
 }
 
 # Read list_plain()'s TSV rows from stdin, compute per-column max widths on
@@ -115,33 +117,35 @@ list_plain() {
 # Prepends a pinned header row whose bare-name field is empty so it can
 # never match a kill/switch lookup.
 format_rows() {
-  local h_idx='#' h_mark=' ' h_name='SESSION' h_wt='WT' h_branch='BRANCH' h_status='STATUS'
-  local names=() idxs=() markers=() dispnames=() wts=() branches=() statuses=()
-  local name idx marker dispname wt branch status
+  local h_idx='#' h_mark=' ' h_name='SESSION' h_attn='ATTN' h_wt='WT' h_branch='BRANCH' h_status='STATUS'
+  local names=() idxs=() markers=() dispnames=() attns=() wts=() branches=() statuses=()
+  local name idx marker dispname attn wt branch status
 
-  while IFS=$'\t' read -r name idx marker dispname wt branch status; do
+  while IFS=$'\t' read -r name idx marker dispname attn wt branch status; do
     names+=("$name"); idxs+=("$idx"); markers+=("$marker")
-    dispnames+=("$dispname"); wts+=("$wt"); branches+=("$branch"); statuses+=("$status")
+    dispnames+=("$dispname"); attns+=("$attn"); wts+=("$wt"); branches+=("$branch"); statuses+=("$status")
   done
 
-  local w_idx=${#h_idx} w_name=${#h_name} w_wt=${#h_wt} w_branch=${#h_branch} w_status=${#h_status}
+  local w_idx=${#h_idx} w_name=${#h_name} w_attn=${#h_attn} w_wt=${#h_wt} w_branch=${#h_branch} w_status=${#h_status}
   local i
   for i in "${!names[@]}"; do
     (( ${#idxs[$i]} > w_idx )) && w_idx=${#idxs[$i]}
     (( ${#dispnames[$i]} > w_name )) && w_name=${#dispnames[$i]}
+    (( ${#attns[$i]} > w_attn )) && w_attn=${#attns[$i]}
     (( ${#wts[$i]} > w_wt )) && w_wt=${#wts[$i]}
     (( ${#branches[$i]} > w_branch )) && w_branch=${#branches[$i]}
     (( ${#statuses[$i]} > w_status )) && w_status=${#statuses[$i]}
   done
 
-  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s\n' \
+  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s  %-*s\n' \
     "$w_idx" "$h_idx" "$h_mark" \
-    "$w_name" "$h_name" "$w_wt" "$h_wt" "$w_branch" "$h_branch" "$w_status" "$h_status"
+    "$w_name" "$h_name" "$w_attn" "$h_attn" "$w_wt" "$h_wt" "$w_branch" "$h_branch" "$w_status" "$h_status"
 
   for i in "${!names[@]}"; do
-    local idx_pad name_pad wt_pad branch_pad status_pad status_disp
+    local idx_pad name_pad attn_pad wt_pad branch_pad status_pad status_disp
     idx_pad=$(printf '%*s' "$w_idx" "${idxs[$i]}")
     name_pad=$(printf '%-*s' "$w_name" "${dispnames[$i]}")
+    attn_pad=$(printf '%-*s' "$w_attn" "${attns[$i]}")
     wt_pad=$(printf '%-*s' "$w_wt" "${wts[$i]}")
     branch_pad=$(printf '%-*s' "$w_branch" "${branches[$i]}")
     status_pad=$(printf '%-*s' "$w_status" "${statuses[$i]}")
@@ -152,8 +156,8 @@ format_rows() {
       *) status_disp="$status_pad" ;;
     esac
 
-    printf '%s\t%s  %s  %s  %s  %s  %s\n' \
-      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$wt_pad" "$(c_dim "$branch_pad")" "$status_disp"
+    printf '%s\t%s  %s  %s  %s  %s  %s  %s\n' \
+      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$attn_pad" "$wt_pad" "$(c_dim "$branch_pad")" "$status_disp"
   done
 }
 

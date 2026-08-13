@@ -129,7 +129,7 @@ check_list_format() {
   local desc="$1"
   local out
   out=$(
-    printf 'alpha\t1\t*\talpha\t-\t-\t-\nlong-session-name\t2\t-\tlong-session-name\twt\tfeature-branch\tmerged\n' \
+    printf 'alpha\t1\t*\talpha\t-\t-\t-\t-\nlong-session-name\t2\t-\tlong-session-name\t?\twt\tfeature-branch\tmerged\n' \
       | bash -c '
           source "'"$SCRIPT"'" 2>/dev/null || true
           format_rows
