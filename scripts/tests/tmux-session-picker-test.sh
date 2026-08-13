@@ -121,6 +121,66 @@ repo=$(make_repo case6)
 )
 check "detached HEAD" "$repo" "[detached]"
 
+### Case 7: list formatting — column alignment + delimiter parsing ############
+# Feeds fixed TSV rows (bypassing tmux/git entirely) into the script's
+# internal `list_plain | format_rows` pipeline via a small harness, so the
+# padding/coloring logic is testable without a live tmux server or repos.
+check_list_format() {
+  local desc="$1"
+  local out
+  out=$(
+    printf 'alpha\t1\t*\talpha\t-\t-\t-\nlong-session-name\t2\t-\tlong-session-name\twt\tfeature-branch\tmerged\n' \
+      | bash -c '
+          source "'"$SCRIPT"'" 2>/dev/null || true
+          format_rows
+        ' 2>/dev/null
+  )
+
+  # Field 1 (bare name) must be exactly the machine-readable key, untouched
+  # by padding or color, for every non-header row.
+  local f1_alpha f1_long
+  f1_alpha=$(echo "$out" | awk -F'\t' 'NR==2{print $1}')
+  f1_long=$(echo "$out" | awk -F'\t' 'NR==3{print $1}')
+  if [ "$f1_alpha" != "alpha" ] || [ "$f1_long" != "long-session-name" ]; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (field 1 mismatch)"
+    echo "       alpha field1: [$f1_alpha]  long field1: [$f1_long]"
+    return
+  fi
+
+  # Header row's bare-name field (field 1) must be empty.
+  local header_f1
+  header_f1=$(echo "$out" | awk -F'\t' 'NR==1{print $1}')
+  if [ -n "$header_f1" ]; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (header field 1 not empty: [$header_f1])"
+    return
+  fi
+
+  # Display fields (field 2), stripped of ANSI, must be equal width across
+  # all rows including the header, i.e. the grid is actually aligned.
+  local plain_widths
+  plain_widths=$(echo "$out" | awk -F'\t' '{print $2}' | sed $'s/\033\\[[0-9;]*m//g' | awk '{print length}' | sort -u)
+  local n_widths
+  n_widths=$(echo "$plain_widths" | wc -l | tr -d ' ')
+  if [ "$n_widths" != "1" ]; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (display column widths not aligned: $plain_widths)"
+    return
+  fi
+
+  # ANSI escapes must only appear in field 2 (display), never in field 1.
+  if echo "$out" | awk -F'\t' '{print $1}' | grep -q $'\033'; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (ANSI escape leaked into field 1)"
+    return
+  fi
+
+  pass=$((pass + 1))
+  echo "ok   - $desc"
+}
+check_list_format "list_plain rows format into an aligned, delimiter-safe grid"
+
 echo
 echo "passed: $pass  failed: $fail"
 [ "$fail" -eq 0 ]

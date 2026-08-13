@@ -74,29 +74,95 @@ c_dim() { printf '\033[2m%s\033[0m' "$1"; }
 c_green() { printf '\033[32m%s\033[0m' "$1"; }
 c_yellow() { printf '\033[33m%s\033[0m' "$1"; }
 
-# Colorized annotation (with a leading space) to append after the session
-# name for the `list` output, or empty string. Kept separate from
-# branch_status() so the plain-text logic stays trivially testable.
-colorized_annotation() {
-  local path="$1"
-  local raw
-  raw=$(branch_status "$path" 2>/dev/null || true)
-  [ -n "$raw" ] || return 0
+# Emit raw, tab-delimited, uncolored rows for the session table:
+#   <name> <idx> <marker> <name> <wt-or-dash> <branch-or-dash> <status-or-dash>
+# `name` appears twice deliberately: field 1 is the machine-readable key
+# (never displayed, never padded/colored), field 4 is the display copy that
+# gets column-aligned alongside the rest. Kept separate from format_rows()
+# so the column-width/coloring logic can be unit-tested against fixed input
+# without a live tmux server.
+list_plain() {
+  local current idx=0
+  current=$(tmux display-message -p '#S' 2>/dev/null || true)
 
-  case "$raw" in
-    *' [merged]')
-      local br="${raw% \[merged\]}"
-      printf ' %s %s' "$(c_dim "$br")" "$(c_green "[merged]")"
-      ;;
-    *' [unmerged]')
-      local br="${raw% \[unmerged\]}"
-      printf ' %s %s' "$(c_dim "$br")" "$(c_yellow "[unmerged]")"
-      ;;
-    '[detached]')
-      printf ' %s' "$(c_yellow "[detached]")"
-      ;;
-  esac
+  while IFS='|' read -r name path; do
+    idx=$((idx + 1))
+
+    local marker="-"
+    [ "$name" = "$current" ] && marker="*"
+
+    local wt="-"
+    if [ -d "$path" ] && [ -f "$path/.git" ]; then
+      wt="wt"
+    fi
+
+    local raw branch="-" status="-"
+    raw=$(branch_status "$path" 2>/dev/null || true)
+    case "$raw" in
+      *' [merged]') branch="${raw% \[merged\]}"; status="merged" ;;
+      *' [unmerged]') branch="${raw% \[unmerged\]}"; status="unmerged" ;;
+      '[detached]') status="detached" ;;
+    esac
+
+    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$wt" "$branch" "$status"
+  done < <(tmux list-sessions -F '#{session_name}|#{session_path}' 2>/dev/null)
 }
+
+# Read list_plain()'s TSV rows from stdin, compute per-column max widths on
+# the PLAIN text (this must happen before any ANSI codes are added, or the
+# escape bytes would be counted and break alignment), then print final rows
+# as two tab fields: bare session name, and a padded/colored display string.
+# Prepends a pinned header row whose bare-name field is empty so it can
+# never match a kill/switch lookup.
+format_rows() {
+  local h_idx='#' h_mark=' ' h_name='SESSION' h_wt='WT' h_branch='BRANCH' h_status='STATUS'
+  local names=() idxs=() markers=() dispnames=() wts=() branches=() statuses=()
+  local name idx marker dispname wt branch status
+
+  while IFS=$'\t' read -r name idx marker dispname wt branch status; do
+    names+=("$name"); idxs+=("$idx"); markers+=("$marker")
+    dispnames+=("$dispname"); wts+=("$wt"); branches+=("$branch"); statuses+=("$status")
+  done
+
+  local w_idx=${#h_idx} w_name=${#h_name} w_wt=${#h_wt} w_branch=${#h_branch} w_status=${#h_status}
+  local i
+  for i in "${!names[@]}"; do
+    (( ${#idxs[$i]} > w_idx )) && w_idx=${#idxs[$i]}
+    (( ${#dispnames[$i]} > w_name )) && w_name=${#dispnames[$i]}
+    (( ${#wts[$i]} > w_wt )) && w_wt=${#wts[$i]}
+    (( ${#branches[$i]} > w_branch )) && w_branch=${#branches[$i]}
+    (( ${#statuses[$i]} > w_status )) && w_status=${#statuses[$i]}
+  done
+
+  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s\n' \
+    "$w_idx" "$h_idx" "$h_mark" \
+    "$w_name" "$h_name" "$w_wt" "$h_wt" "$w_branch" "$h_branch" "$w_status" "$h_status"
+
+  for i in "${!names[@]}"; do
+    local idx_pad name_pad wt_pad branch_pad status_pad status_disp
+    idx_pad=$(printf '%*s' "$w_idx" "${idxs[$i]}")
+    name_pad=$(printf '%-*s' "$w_name" "${dispnames[$i]}")
+    wt_pad=$(printf '%-*s' "$w_wt" "${wts[$i]}")
+    branch_pad=$(printf '%-*s' "$w_branch" "${branches[$i]}")
+    status_pad=$(printf '%-*s' "$w_status" "${statuses[$i]}")
+
+    case "${statuses[$i]}" in
+      merged) status_disp=$(c_green "$status_pad") ;;
+      unmerged|detached) status_disp=$(c_yellow "$status_pad") ;;
+      *) status_disp="$status_pad" ;;
+    esac
+
+    printf '%s\t%s  %s  %s  %s  %s  %s\n' \
+      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$wt_pad" "$(c_dim "$branch_pad")" "$status_disp"
+  done
+}
+
+# Guard so this file can be `source`d (e.g. by tests, to reach the
+# functions above) without also executing the CLI dispatch/main picker
+# below.
+if [[ "${BASH_SOURCE[0]:-}" != "${0}" ]]; then
+  return 0
+fi
 
 case "${1:-}" in
   branch-status)
@@ -105,20 +171,12 @@ case "${1:-}" in
     exit 0
     ;;
   list)
-    current=$(tmux display-message -p '#S')
-    tmux list-sessions -F '#{session_name}|#{session_path}' 2>/dev/null | while IFS='|' read -r name path; do
-      marker="-"
-      [ "$name" = "$current" ] && marker="*"
-
-      wt=""
-      if [ -d "$path" ] && [ -f "$path/.git" ]; then
-        wt=" [worktree]"
-      fi
-
-      status=$(colorized_annotation "$path")
-
-      echo "${marker} ${name}${wt}${status}"
-    done | nl -w2 -s' '
+    shift
+    if [ "${1:-}" = "--plain" ]; then
+      list_plain
+      exit 0
+    fi
+    list_plain | format_rows
     exit 0
     ;;
   kill)
@@ -157,10 +215,13 @@ selected=$("$SELF" list | fzf \
   --no-info \
   --no-sort \
   --ansi \
+  --delimiter=$'\t' \
+  --with-nth=2.. \
+  --header-lines=1 \
   --prompt="session > " \
   --header="enter:switch | x:kill | 1-9:jump | esc:cancel | [merged]=safe to close" \
   --bind="j:down,k:up" \
-  --bind="x:execute-silent($SELF kill {3})+reload($SELF list)" \
+  --bind="x:execute-silent($SELF kill {1})+reload($SELF list)" \
   --expect="1,2,3,4,5,6,7,8,9" \
 ) || exit 0
 
@@ -168,11 +229,12 @@ selected=$("$SELF" list | fzf \
 key=$(echo "$selected" | head -1)
 choice=$(echo "$selected" | sed -n '2p')
 
-# If a number key was pressed, jump to that session
+# If a number key was pressed, jump to that session. Line 1 of `list` is the
+# pinned header, so the Nth session is on line N+1.
 if [[ -n "$key" && "$key" =~ ^[0-9]$ ]]; then
-  session_name=$("$SELF" list | awk -v n="$key" '$1 == n {print $3}' | sed 's/ \[worktree\]//')
+  session_name=$("$SELF" list | sed -n "$((key + 1))p" | awk -F'\t' '{print $1}')
 else
-  session_name=$(echo "$choice" | awk '{print $3}' | sed 's/ \[worktree\]//')
+  session_name=$(echo "$choice" | awk -F'\t' '{print $1}')
 fi
 
 if [[ -n "${session_name:-}" ]]; then
