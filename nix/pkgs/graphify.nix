@@ -1,6 +1,10 @@
 # Graphify (https://github.com/Graphify-Labs/graphify) — turns a codebase into
 # a queryable knowledge graph for AI coding assistants. Needs the overlay
 # below to fix two broken dependencies in nixpkgs.
+#
+# Returns null when the pkgs set has no `graphify` attribute (e.g. an older
+# nixpkgs pin on NixOS), so callers can gracefully skip it instead of failing
+# evaluation. Callers must filter out null (see nix/home/common.nix).
 { pkgs }:
 let
   overlaidPkgs = pkgs.extend (
@@ -27,4 +31,4 @@ let
     }
   );
 in
-overlaidPkgs.graphify
+if overlaidPkgs ? graphify then overlaidPkgs.graphify else null

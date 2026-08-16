@@ -3,13 +3,17 @@
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
   graphify = import ../pkgs/graphify.nix { inherit pkgs; };
+  # graphify is absent from some nixpkgs pins (e.g. NixOS's system nixpkgs);
+  # skip it gracefully instead of failing evaluation.
+  graphifyPackages = lib.warnIf (graphify == null)
+    "graphify unavailable in this nixpkgs pin — omitting it from home.packages"
+    (lib.optional (graphify != null) graphify);
 in
 {
   home.stateVersion = "24.05";
 
-  home.packages = [
+  home.packages = graphifyPackages ++ [
     j
-    graphify
     tskmstr.packages.${pkgs.system}.default
     pkgs.ripgrep
     pkgs.fzf

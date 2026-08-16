@@ -26,6 +26,9 @@ install:
 	@echo "📦 Installing tools from Brewfile..."
 	@brew bundle
 
+	# Initialize git submodules (nvim plugins, public_logs)
+	@$(MAKE) submodules
+
 	# Install Nix and direnv
 	@$(MAKE) nix
 	@$(MAKE) direnv
@@ -116,11 +119,19 @@ direnv:
 		echo "✅ direnv fish hook already configured"; \
 	fi
 
+# Initialize and update git submodules (nvim plugins, public_logs, and their
+# nested submodules). Required before `switch` because the flake is fetched with
+# ?submodules=1 and Nix expects every submodule checked out on disk.
+submodules:
+	@echo "📦 Initializing git submodules..."
+	@git submodule update --init --recursive
+	@echo "✅ Submodules ready"
+
 # Apply the home-manager config, installing/updating nix-managed packages
 # (tm, etc.) into ~/.nix-profile. The flake is read from git, so uncommitted
 # changes are invisible to it; ?submodules=1 is required for the nvim-tag-stack
 # submodule.
-switch:
+switch: submodules
 	@if [ -n "$$(git status --porcelain)" ]; then \
 		echo "⚠️  Working tree has uncommitted changes — the flake only sees committed content."; \
 	fi
@@ -141,4 +152,4 @@ thatch:
 clean:
 	dune clean && rm -f j
 
-.PHONY: install clean nix direnv thatch switch
+.PHONY: install clean nix direnv thatch switch submodules
