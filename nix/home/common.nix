@@ -1,4 +1,7 @@
-{ config, pkgs, lib, tskmstr, ... }:
+# `tskmstr` is provided via extraSpecialArgs when this repo's flake builds the
+# home config. Consumers that import this module directly (e.g. the system-wide
+# nixos-configs flake) may not provide it, so it defaults to null and is skipped.
+{ config, pkgs, lib, tskmstr ? null, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
@@ -8,13 +11,17 @@ let
   graphifyPackages = lib.warnIf (graphify == null)
     "graphify unavailable in this nixpkgs pin — omitting it from home.packages"
     (lib.optional (graphify != null) graphify);
+  # tskmstr is passed via extraSpecialArgs; skip it when a consumer imports this
+  # module without providing it (see the default above).
+  tskmstrPackages = lib.warnIf (tskmstr == null)
+    "tskmstr not provided (imported without extraSpecialArgs) — omitting it from home.packages"
+    (lib.optional (tskmstr != null) tskmstr.packages.${pkgs.system}.default);
 in
 {
   home.stateVersion = "24.05";
 
-  home.packages = graphifyPackages ++ [
+  home.packages = graphifyPackages ++ tskmstrPackages ++ [
     j
-    tskmstr.packages.${pkgs.system}.default
     pkgs.ripgrep
     pkgs.fzf
     pkgs.bat
