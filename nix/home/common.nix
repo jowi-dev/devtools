@@ -1,7 +1,8 @@
-# `tskmstr` is provided via extraSpecialArgs when this repo's flake builds the
-# home config. Consumers that import this module directly (e.g. the system-wide
-# nixos-configs flake) may not provide it, so it defaults to null and is skipped.
-{ config, pkgs, lib, tskmstr ? null, ... }:
+# `tskmstr` and `vdiff-nvim` are provided via extraSpecialArgs when this repo's
+# flake builds the home config. Consumers that import this module directly
+# (e.g. the system-wide nixos-configs flake) may not provide them, so they
+# default to null and are skipped.
+{ config, pkgs, lib, tskmstr ? null, vdiff-nvim ? null, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
@@ -54,9 +55,13 @@ in
     MACHINE_TYPE = "personal";
   };
 
-  # Neovim — plugins from nixpkgs, config from this repo
-  # Plugins are submodules and won't be in the nix store, so we manage them here.
-  # nvim-tag-stack is committed directly and is available from the store path.
+  # Neovim — most plugins come from nixpkgs (pkgs.vimPlugins below). Two are
+  # built from source instead: nvim-tag-stack is plain files committed
+  # directly in this repo (nvim/pack/plugins/start/nvim-tag-stack), and
+  # vdiff.nvim is fetched via the vdiff-nvim flake input (it has no flake.nix
+  # of its own, hence `flake = false` on the input). nvim/pack/plugins/start/
+  # itself is not linked into ~/.config/nvim — only its nvim-tag-stack
+  # subdirectory is consumed, as a buildVimPlugin src.
   programs.neovim = {
     enable = true;
     withRuby = false;
@@ -71,7 +76,10 @@ in
         name = "nvim-tag-stack";
         src = ./../../nvim/pack/plugins/start/nvim-tag-stack;
       })
-    ];
+    ] ++ lib.optional (vdiff-nvim != null) (pkgs.vimUtils.buildVimPlugin {
+      name = "vdiff.nvim";
+      src = vdiff-nvim;
+    });
   };
 
   # Link init.lua and lua config — don't link pack/ since plugins come from nixpkgs above

@@ -74,7 +74,8 @@
       "inputs": {
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
-        "tskmstr": "tskmstr"
+        "tskmstr": "tskmstr",
+        "vdiff-nvim": "vdiff-nvim"
       }
     },
     "systems": {
@@ -108,6 +109,22 @@
       "original": {
         "owner": "jowi-dev",
         "repo": "tskmstr",
+        "type": "github"
+      }
+    },
+    "vdiff-nvim": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1787072873,
+        "narHash": "sha256-NG6qMWPHtiYuc3ObE65kBDSYzhFTJimFxOYLp3CwfIo=",
+        "owner": "jowi-dev",
+        "repo": "vdiff.nvim",
+        "rev": "6171bcdd07c577e8e5b0e97eacb73073b7c2a6e2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jowi-dev",
+        "repo": "vdiff.nvim",
         "type": "github"
       }
     }
