@@ -1,8 +1,8 @@
-# `tskmstr` and `vdiff-nvim` are provided via extraSpecialArgs when this repo's
-# flake builds the home config. Consumers that import this module directly
-# (e.g. the system-wide nixos-configs flake) may not provide them, so they
-# default to null and are skipped.
-{ config, pkgs, lib, tskmstr ? null, vdiff-nvim ? null, ... }:
+# `tskmstr`, `vdiff-nvim`, and `vdiff` are provided via extraSpecialArgs when
+# this repo's flake builds the home config. Consumers that import this module
+# directly (e.g. the system-wide nixos-configs flake) may not provide them, so
+# they default to null and are skipped.
+{ config, pkgs, lib, tskmstr ? null, vdiff-nvim ? null, vdiff ? null, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
@@ -17,11 +17,16 @@ let
   tskmstrPackages = lib.warnIf (tskmstr == null)
     "tskmstr not provided (imported without extraSpecialArgs) — omitting it from home.packages"
     (lib.optional (tskmstr != null) tskmstr.packages.${pkgs.system}.default);
+  # vdiff is passed via extraSpecialArgs; skip it when a consumer imports this
+  # module without providing it (see the default above).
+  vdiffPackages = lib.warnIf (vdiff == null)
+    "vdiff not provided (imported without extraSpecialArgs) — omitting it from home.packages"
+    (lib.optional (vdiff != null) vdiff.packages.${pkgs.system}.default);
 in
 {
   home.stateVersion = "24.05";
 
-  home.packages = graphifyPackages ++ tskmstrPackages ++ [
+  home.packages = graphifyPackages ++ tskmstrPackages ++ vdiffPackages ++ [
     j
     pkgs.ripgrep
     pkgs.fzf
