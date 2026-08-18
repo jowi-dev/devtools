@@ -119,9 +119,9 @@ direnv:
 		echo "✅ direnv fish hook already configured"; \
 	fi
 
-# Initialize and update git submodules (nvim plugins, public_logs, and their
-# nested submodules). Required before `switch` because the flake is fetched with
-# ?submodules=1 and Nix expects every submodule checked out on disk.
+# Initialize and update git submodules (public_logs only — the nvim plugin
+# submodules were removed; nixpkgs and the vdiff-nvim flake input provide
+# those, and nvim-tag-stack is now plainly committed in this repo).
 submodules:
 	@echo "📦 Initializing git submodules..."
 	@git submodule update --init --recursive
@@ -129,15 +129,15 @@ submodules:
 
 # Apply the home-manager config, installing/updating nix-managed packages
 # (tm, etc.) into ~/.nix-profile. The flake is read from git, so uncommitted
-# changes are invisible to it; ?submodules=1 is required for the nvim-tag-stack
-# submodule.
+# changes are invisible to it. No submodules are needed by the flake itself
+# (public_logs is unrelated to it), so a plain git+file:// ref is enough.
 switch: submodules
 	@if [ -n "$$(git status --porcelain)" ]; then \
 		echo "⚠️  Working tree has uncommitted changes — the flake only sees committed content."; \
 	fi
 	@CONFIG="jowi@$$([ "$$(uname -s)" = "Darwin" ] && echo darwin || echo nixos)"; \
 	echo "🏠 Applying home-manager configuration $$CONFIG..."; \
-	nix run home-manager -- switch --flake "git+file://$$(pwd)?submodules=1#$$CONFIG"
+	nix run home-manager -- switch --flake "git+file://$$(pwd)#$$CONFIG"
 
 # Install thatch and register it as a global Claude Code MCP server
 # CLAUDE.md instructions, hooks, and skills are managed by devtools/claude/ and deployed via j export
