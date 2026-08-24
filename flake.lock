@@ -168,11 +168,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1787408246,
-        "narHash": "sha256-ggF8I8M45OAg78wTMfQzzLw8YQCFyv5Lq+HhGL08NIc=",
+        "lastModified": 1787578910,
+        "narHash": "sha256-Yt5w9QPxuXi9lhK1nySRFWv8QFgiB3Ehv3XHiYHghjk=",
         "owner": "jowi-dev",
         "repo": "vdiff",
-        "rev": "b20bc989894c1d8e44bb78c835ab50f9920b1140",
+        "rev": "deaf9863d502c1c939606bc01247fbc0d22ce9d1",
         "type": "github"
       },
       "original": {
