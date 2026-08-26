@@ -52,6 +52,8 @@ setup_default_keybindings()
 -- Auto-setup with defaults if not explicitly configured
 vim.defer_fn(function()
   if not vim.g.context_panel_setup_called then
-    require('context-panel').setup()
+    require("context-panel").setup({
+      panel = { show_on_startup = not vim.g.vdiff },
+    })
   end
 end, 0)

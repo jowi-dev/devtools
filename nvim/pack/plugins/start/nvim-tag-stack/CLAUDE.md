@@ -119,6 +119,7 @@ A unified Neovim plugin providing a right-side context panel with advanced tag n
 ### 1. Panel Settings
 ```lua
 require('context-panel').setup({
+
   panel = {
     width = 40,
     position = 'right',
