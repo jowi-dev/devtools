@@ -1,6 +1,9 @@
 [backend]
 provider = "github"
 
+[backend.github]
+repo = "jowi-dev/devtools"
+
 [work.lanes.devtools]
 # "." resolves to this repo's own root (repo-local .tskmstr.toml only), so
 # per-ticket worktrees are provisioned from this repo and the lane is always
