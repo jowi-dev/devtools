@@ -70,12 +70,28 @@ branch_status() {
   fi
 }
 
+# Print the name of the project a path belongs to: for a linked worktree
+# that's the parent repo's directory name (not the worktree dir's), for a
+# regular checkout it's the repo root's own name, and "-" for anything that
+# isn't a git repo or doesn't exist. Never fails under set -euo pipefail —
+# this runs on every fzf reload, so a missing/racy path must not abort it.
+project_name() {
+  local path="$1"
+
+  [ -d "$path" ] || { echo "-"; return 0; }
+
+  local common_dir
+  common_dir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || { echo "-"; return 0; }
+
+  basename "${common_dir%/.git}"
+}
+
 c_dim() { printf '\033[2m%s\033[0m' "$1"; }
 c_green() { printf '\033[32m%s\033[0m' "$1"; }
 c_yellow() { printf '\033[33m%s\033[0m' "$1"; }
 
 # Emit raw, tab-delimited, uncolored rows for the session table:
-#   <name> <idx> <marker> <name> <wt-or-dash> <branch-or-dash> <status-or-dash>
+#   <name> <idx> <marker> <name> <attn-or-dash> <wt-or-dash> <project-or-dash> <branch-or-dash> <status-or-dash>
 # `name` appears twice deliberately: field 1 is the machine-readable key
 # (never displayed, never padded/colored), field 4 is the display copy that
 # gets column-aligned alongside the rest. Kept separate from format_rows()
@@ -98,6 +114,9 @@ list_plain() {
       wt="wt"
     fi
 
+    local project
+    project=$(project_name "$path")
+
     local raw branch="-" status="-"
     raw=$(branch_status "$path" 2>/dev/null || true)
     case "$raw" in
@@ -106,7 +125,7 @@ list_plain() {
       '[detached]') status="detached" ;;
     esac
 
-    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$attn" "$wt" "$branch" "$status"
+    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$attn" "$wt" "$project" "$branch" "$status"
   done < <(tmux list-sessions -F '#{session_name}|#{session_path}|#{@picker_status}' 2>/dev/null)
 }
 
@@ -117,36 +136,39 @@ list_plain() {
 # Prepends a pinned header row whose bare-name field is empty so it can
 # never match a kill/switch lookup.
 format_rows() {
-  local h_idx='#' h_mark=' ' h_name='SESSION' h_attn='ATTN' h_wt='WT' h_branch='BRANCH' h_status='STATUS'
-  local names=() idxs=() markers=() dispnames=() attns=() wts=() branches=() statuses=()
-  local name idx marker dispname attn wt branch status
+  local h_idx='#' h_mark=' ' h_name='SESSION' h_attn='ATTN' h_wt='WT' h_project='PROJECT' h_branch='BRANCH' h_status='STATUS'
+  local names=() idxs=() markers=() dispnames=() attns=() wts=() projects=() branches=() statuses=()
+  local name idx marker dispname attn wt project branch status
 
-  while IFS=$'\t' read -r name idx marker dispname attn wt branch status; do
+  while IFS=$'\t' read -r name idx marker dispname attn wt project branch status; do
     names+=("$name"); idxs+=("$idx"); markers+=("$marker")
-    dispnames+=("$dispname"); attns+=("$attn"); wts+=("$wt"); branches+=("$branch"); statuses+=("$status")
+    dispnames+=("$dispname"); attns+=("$attn"); wts+=("$wt"); projects+=("$project")
+    branches+=("$branch"); statuses+=("$status")
   done
 
-  local w_idx=${#h_idx} w_name=${#h_name} w_attn=${#h_attn} w_wt=${#h_wt} w_branch=${#h_branch} w_status=${#h_status}
+  local w_idx=${#h_idx} w_name=${#h_name} w_attn=${#h_attn} w_wt=${#h_wt} w_project=${#h_project} w_branch=${#h_branch} w_status=${#h_status}
   local i
   for i in "${!names[@]}"; do
     (( ${#idxs[$i]} > w_idx )) && w_idx=${#idxs[$i]}
     (( ${#dispnames[$i]} > w_name )) && w_name=${#dispnames[$i]}
     (( ${#attns[$i]} > w_attn )) && w_attn=${#attns[$i]}
     (( ${#wts[$i]} > w_wt )) && w_wt=${#wts[$i]}
+    (( ${#projects[$i]} > w_project )) && w_project=${#projects[$i]}
     (( ${#branches[$i]} > w_branch )) && w_branch=${#branches[$i]}
     (( ${#statuses[$i]} > w_status )) && w_status=${#statuses[$i]}
   done
 
-  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s  %-*s\n' \
+  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s  %-*s  %-*s\n' \
     "$w_idx" "$h_idx" "$h_mark" \
-    "$w_name" "$h_name" "$w_attn" "$h_attn" "$w_wt" "$h_wt" "$w_branch" "$h_branch" "$w_status" "$h_status"
+    "$w_name" "$h_name" "$w_attn" "$h_attn" "$w_wt" "$h_wt" "$w_project" "$h_project" "$w_branch" "$h_branch" "$w_status" "$h_status"
 
   for i in "${!names[@]}"; do
-    local idx_pad name_pad attn_pad wt_pad branch_pad status_pad status_disp
+    local idx_pad name_pad attn_pad wt_pad project_pad branch_pad status_pad status_disp
     idx_pad=$(printf '%*s' "$w_idx" "${idxs[$i]}")
     name_pad=$(printf '%-*s' "$w_name" "${dispnames[$i]}")
     attn_pad=$(printf '%-*s' "$w_attn" "${attns[$i]}")
     wt_pad=$(printf '%-*s' "$w_wt" "${wts[$i]}")
+    project_pad=$(printf '%-*s' "$w_project" "${projects[$i]}")
     branch_pad=$(printf '%-*s' "$w_branch" "${branches[$i]}")
     status_pad=$(printf '%-*s' "$w_status" "${statuses[$i]}")
 
@@ -156,8 +178,8 @@ format_rows() {
       *) status_disp="$status_pad" ;;
     esac
 
-    printf '%s\t%s  %s  %s  %s  %s  %s  %s\n' \
-      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$attn_pad" "$wt_pad" "$(c_dim "$branch_pad")" "$status_disp"
+    printf '%s\t%s  %s  %s  %s  %s  %s  %s  %s\n' \
+      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$attn_pad" "$wt_pad" "$project_pad" "$(c_dim "$branch_pad")" "$status_disp"
   done
 }
 
@@ -172,6 +194,11 @@ case "${1:-}" in
   branch-status)
     shift
     branch_status "${1:-}" || true
+    exit 0
+    ;;
+  project-name)
+    shift
+    project_name "${1:-}" || true
     exit 0
     ;;
   list)
