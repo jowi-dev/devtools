@@ -240,33 +240,56 @@ case "${1:-}" in
 esac
 
 # Main picker
-selected=$("$SELF" list | fzf \
-  --height=100% \
-  --layout=reverse \
-  --no-info \
-  --no-sort \
-  --ansi \
-  --delimiter=$'\t' \
-  --with-nth=2.. \
-  --header-lines=1 \
-  --prompt="session > " \
-  --header="enter:switch | x:kill | 1-9:jump | esc:cancel | [merged]=safe to close" \
-  --bind="j:down,k:up" \
-  --bind="x:execute-silent($SELF kill {1})+reload($SELF list)" \
-  --expect="1,2,3,4,5,6,7,8,9" \
-) || exit 0
+#
+# Modal fzf: opens in NORMAL mode with query input disabled, so keystrokes
+# are single-letter commands rather than filter text -- otherwise typing a
+# filter containing "x" would trigger the kill bind below and destroy a
+# session. `i` switches to INSERT mode (enables the query), `esc` while in
+# INSERT drops back to NORMAL, and `esc`/`q` in NORMAL cancels the picker.
+# fzf has no first-class notion of "mode", so the current mode is tracked
+# via the prompt text itself (the "[N] " / "[I] " prefix); the `esc` bind's
+# `transform` branches on $FZF_PROMPT to decide which of those two it
+# should do.
+#
+# fzf's execute/transform actions run their snippet via `$SHELL -c`, and
+# the user's login shell is fish, which doesn't understand the `case`/`[ ]`
+# syntax below. Force SHELL=/bin/sh for this fzf invocation and keep every
+# bind snippet in POSIX sh.
+fzf_args=(
+  --height=100%
+  --layout=reverse
+  --no-info
+  --no-sort
+  --ansi
+  --delimiter=$'\t'
+  --with-nth=2..
+  --header-lines=1
+  --disabled
+  --prompt="[N] session > "
+  --header="NORMAL — enter:switch | x:kill | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close"
+  --bind="j:down,k:up"
+  --bind="x:execute-silent($SELF kill {1})+reload($SELF list)"
+  --bind="i:unbind(i,j,k,x,q,1,2,3,4,5,6,7,8,9)+enable-search+change-prompt([I] filter > )+change-header(INSERT — type to filter | enter:switch | esc:normal mode)"
+  --bind='esc:transform:case "$FZF_PROMPT" in "[I] "*) echo "disable-search+change-prompt([N] session > )+change-header(NORMAL — enter:switch | x:kill | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close)+rebind(i,j,k,x,q,1,2,3,4,5,6,7,8,9)";; *) echo abort;; esac'
+  --bind="q:abort"
+)
 
-# Parse fzf output: first line is the expect key, second is selected line
-key=$(echo "$selected" | head -1)
-choice=$(echo "$selected" | sed -n '2p')
+# 1-9 jump to the Nth session, NORMAL mode only (the digits are unbound by
+# the `i` bind above while filtering, so they type into the query instead).
+# Each digit's transform is guarded by $FZF_MATCH_COUNT so pressing a digit
+# past the number of visible rows is a no-op rather than accepting whatever
+# the last row happens to be. --expect isn't used here: expect-keys fire
+# even in INSERT mode, so typing "3" into a filter would otherwise
+# immediately accept the current row.
+for n in 1 2 3 4 5 6 7 8 9; do
+  fzf_args+=(--bind="$n:transform:if [ \"\$FZF_MATCH_COUNT\" -ge $n ]; then echo \"pos($n)+accept\"; fi")
+done
 
-# If a number key was pressed, jump to that session. Line 1 of `list` is the
-# pinned header, so the Nth session is on line N+1.
-if [[ -n "$key" && "$key" =~ ^[0-9]$ ]]; then
-  session_name=$("$SELF" list | sed -n "$((key + 1))p" | awk -F'\t' '{print $1}')
-else
-  session_name=$(echo "$choice" | awk -F'\t' '{print $1}')
-fi
+selected=$("$SELF" list | SHELL=/bin/sh fzf "${fzf_args[@]}") || exit 0
+
+# fzf's output is just the selected row -- no --expect key line to parse,
+# since digit jumps are handled above via pos(N)+accept.
+session_name=$(echo "$selected" | awk -F'\t' '{print $1}')
 
 if [[ -n "${session_name:-}" ]]; then
   tmux switch-client -t "$session_name"
