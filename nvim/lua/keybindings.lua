@@ -90,11 +90,6 @@ map('n', '<leader>vr', ':source ~/.config/nvim/init.lua', {noremap=true})
 -- Testing Keybinds -- PREFIX t  
 map('n', '<leader>t',   ':lua vim.lsp.codelens.run()<CR>',{noremap=true})
 
--- Ctags Keybinds
-map('n', '<C-]>', '<C-]>', {noremap=true})  -- Jump to tag under cursor
-map('n', '<C-t>', '<C-t>', {noremap=true})  -- Jump back from tag
-map('n', '<leader>r', ':!ctags -R . 2>/dev/null<CR>', {noremap=true})  -- Regenerate tags (silenced)
-
 -- Formatting Keybinds -- PREFIX f
 map('n', '<leader>F',   ':lua Format()<CR>',{noremap=true})
 map('n', '<leader>to',   ':lua ElixirOpenTestFile()<CR>',{noremap=true})
@@ -121,6 +116,18 @@ map('n','<leader>bc', ":lua require('dap').continue()", {noremap=true})
 map('n','<leader>br', ":lua require('dap').repl.open()", {noremap=true})
 map('n','<leader>bp', ":lua LldbBreak()<CR>", {noremap=true})
 
+-- Push a synthesized tag-stack entry for the symbol under the cursor, then
+-- request references, so reference navigation shows up in the tag-stack
+-- history (and thus in the nvim-tag-stack panel) alongside definition jumps.
+local function lsp_references_with_tagstack()
+  local entry = {
+    tagname = vim.fn.expand('<cword>'),
+    from = { vim.api.nvim_get_current_buf(), vim.fn.line('.'), vim.fn.col('.'), 0 },
+  }
+  vim.fn.settagstack(vim.fn.win_getid(), { items = { entry } }, 't')
+  vim.lsp.buf.references()
+end
+
 -- Use LspAttach autocommand to only map the following keys
 -- after the language server attaches to the current buffer
 vim.api.nvim_create_autocmd('LspAttach', {
@@ -129,11 +136,18 @@ vim.api.nvim_create_autocmd('LspAttach', {
     -- Enable completion triggered by <c-x><c-o>
     vim.bo[ev.buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
 
+    -- Use LSP as the tag source, so native tag jumps/pops (<C-]>/<C-t>)
+    -- and gettagstack()/settagstack() operate against LSP definitions
+    -- instead of a ctags tags file.
+    vim.bo[ev.buf].tagfunc = 'v:lua.vim.lsp.tagfunc'
+
     -- Buffer local mappings.
     -- See `:help vim.lsp.*` for documentation on any of the below functions
     local opts = { buffer = ev.buf }
     map('n', 'gD', vim.lsp.buf.declaration, opts)
-    map('n', 'gd', vim.lsp.buf.definition, opts)
+    -- Native tag jump (consults tagfunc, now LSP) so the jump pushes onto
+    -- the native tag stack that the nvim-tag-stack panel reads.
+    map('n', 'gd', '<C-]>', { buffer = ev.buf, noremap = true, desc = 'LSP definition (tag jump)' })
     map('n', 'K', vim.lsp.buf.hover, opts)
     map('n', 'gi', vim.lsp.buf.implementation, opts)
     map('n', '<C-k>', vim.lsp.buf.signature_help, opts)
@@ -142,7 +156,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
     map('n', '<space>D', vim.lsp.buf.type_definition, opts)
     map('n', '<space>rn', vim.lsp.buf.rename, opts)
     map('n', '<space>ca', vim.lsp.buf.code_action, opts)
-    map('n', 'gr', vim.lsp.buf.references, opts)
+    map('n', 'gr', lsp_references_with_tagstack, opts)
     map('n', '<space>f', function()
       vim.lsp.buf.format { async = true }
     end, opts)
