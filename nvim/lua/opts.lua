@@ -36,16 +36,3 @@ vim.opt.showmatch=true
 vim.opt.incsearch=true
 vim.opt.hlsearch=true
 
--- Ctags configuration
-vim.opt.tags = './tags,tags,../tags,../../tags'
-
--- Auto-generate tags for certain file types
-vim.api.nvim_create_autocmd("BufWritePost", {
-  pattern = {"*.ex", "*.exs", "*.lua", "*.js", "*.ts", "*.py"},
-  callback = function()
-    -- Only generate tags if we're in a project root (has .git)
-    if vim.fn.finddir('.git', '.;') ~= '' then
-      vim.fn.system('ctags -R . &')
-    end
-  end,
-})

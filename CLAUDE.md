@@ -10,7 +10,7 @@ This is a personal development environment configuration repository focused on N
 - Neovim configuration with custom Lua modules
 - Shell configuration (Fish shell with Starship prompt)
 - Development templates for various programming languages
-- Git submodules for logging and Neovim plugins
+- A git submodule (`public_logs`) for published logs
 
 ## Key Commands
 
@@ -114,8 +114,8 @@ nix flake init -t .#odin          # Odin graphics development
 
 ### Build Commands (from Makefile)
 ```bash
-# Build WSL Nix configuration
-make wsl
+# Build the j CLI (dune build inside nix develop, copies binary to ./j)
+make j
 ```
 
 ## Architecture
@@ -123,12 +123,12 @@ make wsl
 ### Configuration Structure
 - `/nvim/` - Complete Neovim configuration with Lua modules for keybindings, options, package config, language support, and aliases
 - `/templates/` - Nix flake templates for different development environments
-- `/logs/` - Private git submodule for personal logging (dailies, work notes, projects, private TILs)
-- `/public_logs/` - Public git submodule for published content (polished TILs, blog posts)
+- `/logs/` - Private logging repo, cloned locally at the repo root (not tracked here; used by `j plan`/`j til` for dailies, work notes, projects, private TILs)
+- `/public_logs/` - Public git submodule for published content (polished TILs, blog posts); the only registered submodule
 - Root level config files: `Brewfile`, `mise.toml`, `starship.toml`, `fish/config.fish`
 
 ### Logging Structure
-**Private (`logs/` submodule - git@github.com:jowi-dev/logs.git):**
+**Private (`logs/` - local clone of git@github.com:jowi-dev/logs.git, not a registered submodule):**
 - `dailies/` - Daily plans and retrospectives with Goals/Notes/Done sections
 - `work/` - Work-related notes, 1-1s, performance reviews
 - `projects/` - Project-specific notes and planning
@@ -159,7 +159,7 @@ This environment supports cross-platform development with:
 - **j command** for config synchronization and logging workflow
 - **Starship** for enhanced shell prompting
 - **Fish shell** as the primary shell with abbreviations for common commands
-- **Git submodules** for modular configuration components (nvim plugins, private logs, public logs)
+- **Git submodule** (`public_logs`) for published log content
 
 The templates system allows quick project initialization with pre-configured development environments for different languages and frameworks.
 
