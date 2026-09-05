@@ -178,8 +178,7 @@ Perfect for exploring large codebases, understanding call hierarchies, and maint
 ## Requirements
 
 - Neovim 0.8+ (for floating window APIs)
-- Optional: LSP client for intelligent completions
-- Optional: ctags or universal-ctags for enhanced tag information
+- LSP client configured as the tagfunc (`vim.lsp.tagfunc`) — tag stack entries come from LSP definition/reference navigation, not a ctags tags file
 
 ## Contributing
 

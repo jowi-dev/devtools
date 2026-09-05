@@ -155,8 +155,8 @@ require('context-panel').setup({
 
 ### 1. Dependencies
 - Neovim 0.8+ for floating window APIs
-- Optional: LSP client for intelligent completions
-- Optional: `ctags` for enhanced tag information
+- LSP client for intelligent completions
+- LSP client configured as the tagfunc (`vim.lsp.tagfunc`) — tag stack entries are populated by LSP-backed navigation (`gd`/`<C-]>` definition jumps, and a `gr` references wrapper), not a ctags tags file
 - Lua implementation for performance
 
 ### 2. Performance
