@@ -101,12 +101,13 @@ list_plain() {
   local current idx=0
   current=$(tmux display-message -p '#S' 2>/dev/null || true)
 
-  while IFS='|' read -r name path attn; do
+  while IFS='|' read -r name path attn srv; do
     idx=$((idx + 1))
 
     local marker="-"
     [ "$name" = "$current" ] && marker="*"
 
+    attn="${attn}${srv}"
     [ -n "$attn" ] || attn="-"
 
     local wt="-"
@@ -126,7 +127,7 @@ list_plain() {
     esac
 
     printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$attn" "$wt" "$project" "$branch" "$status"
-  done < <(tmux list-sessions -F '#{session_name}|#{session_path}|#{@picker_status}' 2>/dev/null)
+  done < <(tmux list-sessions -F '#{session_name}|#{session_path}|#{@picker_status}|#{@picker_server}' 2>/dev/null)
 }
 
 # Read list_plain()'s TSV rows from stdin, compute per-column max widths on
@@ -203,6 +204,9 @@ case "${1:-}" in
     ;;
   list)
     shift
+    # Refresh @picker_server now, not on a timer: the popup opening is the
+    # moment the answer matters, and this reruns on every fzf reload too.
+    "$(dirname "$SELF")/phoenix-picker-server.sh" detect >/dev/null 2>&1 || true
     if [ "${1:-}" = "--plain" ]; then
       list_plain
       exit 0
