@@ -33,6 +33,20 @@ check() {
   fi
 }
 
+check_project() {
+  local desc="$1" path="$2" expected="$3" actual
+  actual=$("$SCRIPT" project-name "$path" 2>&1 || true)
+  if [ "$actual" = "$expected" ]; then
+    pass=$((pass + 1))
+    echo "ok   - $desc"
+  else
+    fail=$((fail + 1))
+    echo "FAIL - $desc"
+    echo "       expected: [$expected]"
+    echo "       actual:   [$actual]"
+  fi
+}
+
 git_c() { git -c user.email=t@t -c user.name=t "$@"; }
 
 # Set up a bare "origin" and a repo cloned from it, so origin/HEAD resolves
@@ -121,7 +135,28 @@ repo=$(make_repo case6)
 )
 check "detached HEAD" "$repo" "[detached]"
 
-### Case 7: list formatting — column alignment + delimiter parsing ############
+### Case 7: project-name — regular git repo ###################################
+repo=$(make_repo case7)
+check_project "regular repo reports its own name" "$repo" "$(basename "$repo")"
+
+### Case 8: project-name — linked worktree reports the PARENT repo's name #####
+repo=$(make_repo case8)
+wt="$WORK/case8-wt"
+(
+  cd "$repo"
+  git_c worktree add -q -b case8-wt-branch "$wt"
+)
+check_project "linked worktree reports parent repo name" "$wt" "$(basename "$repo")"
+
+### Case 9: project-name — non-git directory ###################################
+nongit2="$WORK/not-a-repo-2"
+mkdir -p "$nongit2"
+check_project "non-git directory" "$nongit2" "-"
+
+### Case 10: project-name — nonexistent path ###################################
+check_project "nonexistent path" "$WORK/does-not-exist" "-"
+
+### Case 11: list formatting — column alignment + delimiter parsing ############
 # Feeds fixed TSV rows (bypassing tmux/git entirely) into the script's
 # internal `list_plain | format_rows` pipeline via a small harness, so the
 # padding/coloring logic is testable without a live tmux server or repos.
@@ -129,7 +164,7 @@ check_list_format() {
   local desc="$1"
   local out
   out=$(
-    printf 'alpha\t1\t*\talpha\t-\t-\t-\t-\nlong-session-name\t2\t-\tlong-session-name\t?\twt\tfeature-branch\tmerged\n' \
+    printf 'alpha\t1\t*\talpha\t-\t-\t-\t-\t-\nlong-session-name\t2\t-\tlong-session-name\t?\twt\tdevtools\tfeature-branch\tmerged\n' \
       | bash -c '
           source "'"$SCRIPT"'" 2>/dev/null || true
           format_rows

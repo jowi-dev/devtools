@@ -70,12 +70,28 @@ branch_status() {
   fi
 }
 
+# Print the name of the project a path belongs to: for a linked worktree
+# that's the parent repo's directory name (not the worktree dir's), for a
+# regular checkout it's the repo root's own name, and "-" for anything that
+# isn't a git repo or doesn't exist. Never fails under set -euo pipefail —
+# this runs on every fzf reload, so a missing/racy path must not abort it.
+project_name() {
+  local path="$1"
+
+  [ -d "$path" ] || { echo "-"; return 0; }
+
+  local common_dir
+  common_dir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || { echo "-"; return 0; }
+
+  basename "${common_dir%/.git}"
+}
+
 c_dim() { printf '\033[2m%s\033[0m' "$1"; }
 c_green() { printf '\033[32m%s\033[0m' "$1"; }
 c_yellow() { printf '\033[33m%s\033[0m' "$1"; }
 
 # Emit raw, tab-delimited, uncolored rows for the session table:
-#   <name> <idx> <marker> <name> <wt-or-dash> <branch-or-dash> <status-or-dash>
+#   <name> <idx> <marker> <name> <attn-or-dash> <wt-or-dash> <project-or-dash> <branch-or-dash> <status-or-dash>
 # `name` appears twice deliberately: field 1 is the machine-readable key
 # (never displayed, never padded/colored), field 4 is the display copy that
 # gets column-aligned alongside the rest. Kept separate from format_rows()
@@ -98,6 +114,9 @@ list_plain() {
       wt="wt"
     fi
 
+    local project
+    project=$(project_name "$path")
+
     local raw branch="-" status="-"
     raw=$(branch_status "$path" 2>/dev/null || true)
     case "$raw" in
@@ -106,7 +125,7 @@ list_plain() {
       '[detached]') status="detached" ;;
     esac
 
-    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$attn" "$wt" "$branch" "$status"
+    printf '%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$idx" "$marker" "$name" "$attn" "$wt" "$project" "$branch" "$status"
   done < <(tmux list-sessions -F '#{session_name}|#{session_path}|#{@picker_status}' 2>/dev/null)
 }
 
@@ -117,36 +136,39 @@ list_plain() {
 # Prepends a pinned header row whose bare-name field is empty so it can
 # never match a kill/switch lookup.
 format_rows() {
-  local h_idx='#' h_mark=' ' h_name='SESSION' h_attn='ATTN' h_wt='WT' h_branch='BRANCH' h_status='STATUS'
-  local names=() idxs=() markers=() dispnames=() attns=() wts=() branches=() statuses=()
-  local name idx marker dispname attn wt branch status
+  local h_idx='#' h_mark=' ' h_name='SESSION' h_attn='ATTN' h_wt='WT' h_project='PROJECT' h_branch='BRANCH' h_status='STATUS'
+  local names=() idxs=() markers=() dispnames=() attns=() wts=() projects=() branches=() statuses=()
+  local name idx marker dispname attn wt project branch status
 
-  while IFS=$'\t' read -r name idx marker dispname attn wt branch status; do
+  while IFS=$'\t' read -r name idx marker dispname attn wt project branch status; do
     names+=("$name"); idxs+=("$idx"); markers+=("$marker")
-    dispnames+=("$dispname"); attns+=("$attn"); wts+=("$wt"); branches+=("$branch"); statuses+=("$status")
+    dispnames+=("$dispname"); attns+=("$attn"); wts+=("$wt"); projects+=("$project")
+    branches+=("$branch"); statuses+=("$status")
   done
 
-  local w_idx=${#h_idx} w_name=${#h_name} w_attn=${#h_attn} w_wt=${#h_wt} w_branch=${#h_branch} w_status=${#h_status}
+  local w_idx=${#h_idx} w_name=${#h_name} w_attn=${#h_attn} w_wt=${#h_wt} w_project=${#h_project} w_branch=${#h_branch} w_status=${#h_status}
   local i
   for i in "${!names[@]}"; do
     (( ${#idxs[$i]} > w_idx )) && w_idx=${#idxs[$i]}
     (( ${#dispnames[$i]} > w_name )) && w_name=${#dispnames[$i]}
     (( ${#attns[$i]} > w_attn )) && w_attn=${#attns[$i]}
     (( ${#wts[$i]} > w_wt )) && w_wt=${#wts[$i]}
+    (( ${#projects[$i]} > w_project )) && w_project=${#projects[$i]}
     (( ${#branches[$i]} > w_branch )) && w_branch=${#branches[$i]}
     (( ${#statuses[$i]} > w_status )) && w_status=${#statuses[$i]}
   done
 
-  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s  %-*s\n' \
+  printf '\t%*s  %s  %-*s  %-*s  %-*s  %-*s  %-*s  %-*s\n' \
     "$w_idx" "$h_idx" "$h_mark" \
-    "$w_name" "$h_name" "$w_attn" "$h_attn" "$w_wt" "$h_wt" "$w_branch" "$h_branch" "$w_status" "$h_status"
+    "$w_name" "$h_name" "$w_attn" "$h_attn" "$w_wt" "$h_wt" "$w_project" "$h_project" "$w_branch" "$h_branch" "$w_status" "$h_status"
 
   for i in "${!names[@]}"; do
-    local idx_pad name_pad attn_pad wt_pad branch_pad status_pad status_disp
+    local idx_pad name_pad attn_pad wt_pad project_pad branch_pad status_pad status_disp
     idx_pad=$(printf '%*s' "$w_idx" "${idxs[$i]}")
     name_pad=$(printf '%-*s' "$w_name" "${dispnames[$i]}")
     attn_pad=$(printf '%-*s' "$w_attn" "${attns[$i]}")
     wt_pad=$(printf '%-*s' "$w_wt" "${wts[$i]}")
+    project_pad=$(printf '%-*s' "$w_project" "${projects[$i]}")
     branch_pad=$(printf '%-*s' "$w_branch" "${branches[$i]}")
     status_pad=$(printf '%-*s' "$w_status" "${statuses[$i]}")
 
@@ -156,8 +178,8 @@ format_rows() {
       *) status_disp="$status_pad" ;;
     esac
 
-    printf '%s\t%s  %s  %s  %s  %s  %s  %s\n' \
-      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$attn_pad" "$wt_pad" "$(c_dim "$branch_pad")" "$status_disp"
+    printf '%s\t%s  %s  %s  %s  %s  %s  %s  %s\n' \
+      "${names[$i]}" "$idx_pad" "${markers[$i]}" "$name_pad" "$attn_pad" "$wt_pad" "$project_pad" "$(c_dim "$branch_pad")" "$status_disp"
   done
 }
 
@@ -172,6 +194,11 @@ case "${1:-}" in
   branch-status)
     shift
     branch_status "${1:-}" || true
+    exit 0
+    ;;
+  project-name)
+    shift
+    project_name "${1:-}" || true
     exit 0
     ;;
   list)
@@ -213,33 +240,56 @@ case "${1:-}" in
 esac
 
 # Main picker
-selected=$("$SELF" list | fzf \
-  --height=100% \
-  --layout=reverse \
-  --no-info \
-  --no-sort \
-  --ansi \
-  --delimiter=$'\t' \
-  --with-nth=2.. \
-  --header-lines=1 \
-  --prompt="session > " \
-  --header="enter:switch | x:kill | 1-9:jump | esc:cancel | [merged]=safe to close" \
-  --bind="j:down,k:up" \
-  --bind="x:execute-silent($SELF kill {1})+reload($SELF list)" \
-  --expect="1,2,3,4,5,6,7,8,9" \
-) || exit 0
+#
+# Modal fzf: opens in NORMAL mode with query input disabled, so keystrokes
+# are single-letter commands rather than filter text -- otherwise typing a
+# filter containing "x" would trigger the kill bind below and destroy a
+# session. `i` switches to INSERT mode (enables the query), `esc` while in
+# INSERT drops back to NORMAL, and `esc`/`q` in NORMAL cancels the picker.
+# fzf has no first-class notion of "mode", so the current mode is tracked
+# via the prompt text itself (the "[N] " / "[I] " prefix); the `esc` bind's
+# `transform` branches on $FZF_PROMPT to decide which of those two it
+# should do.
+#
+# fzf's execute/transform actions run their snippet via `$SHELL -c`, and
+# the user's login shell is fish, which doesn't understand the `case`/`[ ]`
+# syntax below. Force SHELL=/bin/sh for this fzf invocation and keep every
+# bind snippet in POSIX sh.
+fzf_args=(
+  --height=100%
+  --layout=reverse
+  --no-info
+  --no-sort
+  --ansi
+  --delimiter=$'\t'
+  --with-nth=2..
+  --header-lines=1
+  --disabled
+  --prompt="[N] session > "
+  --header="NORMAL — enter:switch | x:kill | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close"
+  --bind="j:down,k:up"
+  --bind="x:execute-silent($SELF kill {1})+reload($SELF list)"
+  --bind="i:unbind(i,j,k,x,q,1,2,3,4,5,6,7,8,9)+enable-search+change-prompt([I] filter > )+change-header(INSERT — type to filter | enter:switch | esc:normal mode)"
+  --bind='esc:transform:case "$FZF_PROMPT" in "[I] "*) echo "disable-search+change-prompt([N] session > )+change-header(NORMAL — enter:switch | x:kill | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close)+rebind(i,j,k,x,q,1,2,3,4,5,6,7,8,9)";; *) echo abort;; esac'
+  --bind="q:abort"
+)
 
-# Parse fzf output: first line is the expect key, second is selected line
-key=$(echo "$selected" | head -1)
-choice=$(echo "$selected" | sed -n '2p')
+# 1-9 jump to the Nth session, NORMAL mode only (the digits are unbound by
+# the `i` bind above while filtering, so they type into the query instead).
+# Each digit's transform is guarded by $FZF_MATCH_COUNT so pressing a digit
+# past the number of visible rows is a no-op rather than accepting whatever
+# the last row happens to be. --expect isn't used here: expect-keys fire
+# even in INSERT mode, so typing "3" into a filter would otherwise
+# immediately accept the current row.
+for n in 1 2 3 4 5 6 7 8 9; do
+  fzf_args+=(--bind="$n:transform:if [ \"\$FZF_MATCH_COUNT\" -ge $n ]; then echo \"pos($n)+accept\"; fi")
+done
 
-# If a number key was pressed, jump to that session. Line 1 of `list` is the
-# pinned header, so the Nth session is on line N+1.
-if [[ -n "$key" && "$key" =~ ^[0-9]$ ]]; then
-  session_name=$("$SELF" list | sed -n "$((key + 1))p" | awk -F'\t' '{print $1}')
-else
-  session_name=$(echo "$choice" | awk -F'\t' '{print $1}')
-fi
+selected=$("$SELF" list | SHELL=/bin/sh fzf "${fzf_args[@]}") || exit 0
+
+# fzf's output is just the selected row -- no --expect key line to parse,
+# since digit jumps are handled above via pos(N)+accept.
+session_name=$(echo "$selected" | awk -F'\t' '{print $1}')
 
 if [[ -n "${session_name:-}" ]]; then
   tmux switch-client -t "$session_name"
