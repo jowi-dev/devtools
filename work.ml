@@ -42,6 +42,28 @@ let session_name_of_dir dir =
   let base = Filename.basename dir in
   String.map (fun c -> if c = '.' then '-' else c) base
 
+(* Stamp the per-session tmux user option `@root_session` (exact string —
+   shared cross-repo contract) with the name of the project's root session,
+   so the tmux picker can jump back to it from a linked worktree's session.
+   Only set for linked worktrees — the main checkout's common-dir is
+   `<dir>/.git`, so root = dir there and we skip stamping. Best-effort: any
+   failure (not a git repo, tmux not up, session gone) must never fail or
+   delay session creation, so all outcomes are swallowed. [dir] is expected
+   to already be an absolute, non-trailing-slash path (as produced by
+   [start]'s abs_dir and [worktree_restore]'s wt_path); a false "equal" from
+   a differently-formatted dir just skips stamping, and a false "different"
+   stamps a root pointing at the session's own name, which the picker treats
+   as a no-op — both degrade safely. *)
+let tmux_stamp_root_session name dir =
+  match command_output (sprintf "git -C '%s' rev-parse --path-format=absolute --git-common-dir 2>/dev/null" dir) with
+  | Some git_dir when Filename.basename git_dir = ".git" ->
+    let root = Filename.dirname git_dir in
+    if root <> dir then begin
+      let cmd = sprintf "tmux set-option -t '%s' @root_session '%s' 2>/dev/null" name (session_name_of_dir root) in
+      ignore (Sys.command cmd)
+    end
+  | _ -> ()
+
 let tmux_has_session name =
   let cmd = sprintf "tmux has-session -t '%s' 2>/dev/null" name in
   Sys.command cmd = 0
@@ -86,10 +108,12 @@ let start dir =
 
   if tmux_has_session name then (
     printf "Attaching to existing session: %s\n" name;
+    tmux_stamp_root_session name abs_dir;
     tmux_attach name
   ) else (
     printf "Creating session: %s (%s)\n" name abs_dir;
     tmux_new_session name abs_dir;
+    tmux_stamp_root_session name abs_dir;
     tmux_attach name
   )
 
@@ -220,6 +244,7 @@ let worktree_restore () =
           ) else (
             printf "Restoring: %s (%s)\n" session wt_path;
             tmux_new_session session wt_path;
+            tmux_stamp_root_session session wt_path;
             incr restored
           )
         )
@@ -689,7 +714,9 @@ let show_help () =
   print_endline "                         --fg runs synchronously in the foreground instead";
   print_endline "";
   print_endline "Worktrees are created at ~/Worktrees/<repo-name>/<name>/";
-  print_endline "Sessions get 4 windows: code, fish, claude, server."
+  print_endline "Sessions get 4 windows: code, fish, claude, server.";
+  print_endline "Linked worktree sessions get @root_session set to the root repo's";
+  print_endline "session name, so a tmux picker can jump back to it."
 
 let handle_command args =
   match args with
