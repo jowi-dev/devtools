@@ -181,6 +181,133 @@ check_list_format() {
 }
 check_list_format "list_plain rows format into an aligned, delimiter-safe grid"
 
+### Case 8: ATTN cell carries a combined status+server symbol #################
+# Mirrors how list_plain() concatenates @picker_status and @picker_server
+# into one ATTN cell: a session with both gets "❓🔥", one with only the
+# server symbol gets "🔥" alone. Field 1 (bare name) must stay untouched.
+check_attn_combo() {
+  local desc="$1"
+  local out
+  out=$(
+    printf 'both\t1\t*\tboth\t\xe2\x9d\x93\xf0\x9f\x94\xa5\t-\t-\t-\nserver-only\t2\t-\tserver-only\t\xf0\x9f\x94\xa5\t-\t-\t-\n' \
+      | bash -c '
+          source "'"$SCRIPT"'" 2>/dev/null || true
+          format_rows
+        ' 2>/dev/null
+  )
+
+  local f1_both f1_srv attn_both attn_srv
+  f1_both=$(echo "$out" | awk -F'\t' 'NR==2{print $1}')
+  f1_srv=$(echo "$out" | awk -F'\t' 'NR==3{print $1}')
+  if [ "$f1_both" != "both" ] || [ "$f1_srv" != "server-only" ]; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (field 1 mismatch)"
+    echo "       both field1: [$f1_both]  server-only field1: [$f1_srv]"
+    return
+  fi
+
+  attn_both=$(echo "$out" | awk -F'\t' 'NR==2{print $2}')
+  attn_srv=$(echo "$out" | awk -F'\t' 'NR==3{print $2}')
+  if ! echo "$attn_both" | grep -qF $'\xe2\x9d\x93\xf0\x9f\x94\xa5'; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (combined ATTN cell missing from row: [$attn_both])"
+    return
+  fi
+  if ! echo "$attn_srv" | grep -qF $'\xf0\x9f\x94\xa5'; then
+    fail=$((fail + 1))
+    echo "FAIL - $desc (server-only ATTN cell missing from row: [$attn_srv])"
+    return
+  fi
+
+  pass=$((pass + 1))
+  echo "ok   - $desc"
+}
+check_attn_combo "format_rows renders combined status+server ATTN cells"
+
+### Case 9: live list --plain — detection runs at list time, renders in ATTN ##
+# Runs the real picker (list --plain) against an isolated tmux server with a
+# real listener on one session and a stale @picker_server on another, to
+# prove end-to-end that detection happens fresh at list time and lands in
+# the ATTN cell without disturbing @picker_status.
+LIST_SOCK="picker-list-test-$$"
+LIST_OWNER_DIR="$(mktemp -d)"
+LIST_OTHER_DIR="$(mktemp -d)"
+LIST_OUT_DIR="$(mktemp -d)"
+LIST_NC_PID=""
+
+list_cleanup() {
+  [ -n "$LIST_NC_PID" ] && kill "$LIST_NC_PID" >/dev/null 2>&1 || true
+  tmux -L "$LIST_SOCK" kill-server >/dev/null 2>&1 || true
+  rm -rf "$LIST_OWNER_DIR" "$LIST_OTHER_DIR" "$LIST_OUT_DIR"
+}
+trap 'list_cleanup; rm -rf "$WORK"' EXIT
+
+# lsowner will run the `list --plain` capture; lsother hosts the real
+# listener (a pane can't easily run both a background listener and the
+# capture command at once).
+tmux -L "$LIST_SOCK" -f /dev/null new-session -d -s lsowner -c "$LIST_OWNER_DIR"
+tmux -L "$LIST_SOCK" new-session -d -s lsother -c "$LIST_OTHER_DIR"
+
+LIST_PORT=$((20000 + RANDOM % 20000))
+tmux -L "$LIST_SOCK" send-keys -t lsother "nc -l $LIST_PORT" C-m
+
+listener_pid=""
+for _ in $(seq 1 50); do
+  listener_pid="$(lsof -nP -iTCP:"$LIST_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n1 || true)"
+  [ -n "$listener_pid" ] && break
+  sleep 0.1
+done
+
+if [ -z "$listener_pid" ]; then
+  fail=$((fail + 1))
+  echo "FAIL - list --plain live case: listener never came up on port $LIST_PORT"
+else
+  LIST_NC_PID="$listener_pid"
+
+  # Pre-seed a stale server symbol on lsowner (should be cleared by fresh
+  # detection) and a @picker_status on lsowner (must survive untouched).
+  tmux -L "$LIST_SOCK" set-option -t lsowner @picker_server "🔥" >/dev/null 2>&1 || true
+  tmux -L "$LIST_SOCK" set-option -t lsowner @picker_status "❓" >/dev/null 2>&1 || true
+
+  LIST_OUT="$LIST_OUT_DIR/out.tsv"
+  LIST_DONE="$LIST_OUT_DIR/done"
+  tmux -L "$LIST_SOCK" send-keys -t lsowner \
+    "PICKER_SERVER_PORT=$LIST_PORT bash '$SCRIPT' list --plain > '$LIST_OUT' 2>/dev/null; touch '$LIST_DONE'" C-m
+
+  waited=0
+  while [ ! -f "$LIST_DONE" ] && [ "$waited" -lt 50 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+
+  if [ ! -f "$LIST_DONE" ]; then
+    fail=$((fail + 1))
+    echo "FAIL - list --plain live case: capture never completed"
+  else
+    lsother_attn=$(awk -F'\t' '$1=="lsother"{print $5}' "$LIST_OUT")
+    lsowner_attn=$(awk -F'\t' '$1=="lsowner"{print $5}' "$LIST_OUT")
+    lsother_fields=$(awk -F'\t' '$1=="lsother"{print NF}' "$LIST_OUT")
+    lsowner_fields=$(awk -F'\t' '$1=="lsowner"{print NF}' "$LIST_OUT")
+
+    check_eq() {
+      local desc="$1" expected="$2" actual="$3"
+      if [ "$actual" = "$expected" ]; then
+        pass=$((pass + 1))
+        echo "ok   - $desc"
+      else
+        fail=$((fail + 1))
+        echo "FAIL - $desc"
+        echo "       expected: [$expected]"
+        echo "       actual:   [$actual]"
+      fi
+    }
+    check_eq "list --plain: lsother (live listener owner) gets server symbol in ATTN" "🔥" "$lsother_attn"
+    check_eq "list --plain: lsowner's stale server symbol cleared, @picker_status untouched" "❓" "$lsowner_attn"
+    check_eq "list --plain: lsother row has 8 tab-separated fields" "8" "$lsother_fields"
+    check_eq "list --plain: lsowner row has 8 tab-separated fields" "8" "$lsowner_fields"
+  fi
+fi
+
 echo
 echo "passed: $pass  failed: $fail"
 [ "$fail" -eq 0 ]
