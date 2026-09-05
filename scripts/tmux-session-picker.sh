@@ -86,6 +86,85 @@ project_name() {
   basename "${common_dir%/.git}"
 }
 
+# Optional: talk to `tmux -L "$TMUX_PICKER_SOCKET"` instead of the default
+# socket. Lets tests run against an isolated tmux server; real usage leaves
+# this unset and gets plain `tmux`, which resolves via the ambient $TMUX.
+# Used only by the root-session/jump-root paths below — existing tmux calls
+# are left untouched to keep this diff minimal.
+_tmux() {
+  if [ -n "${TMUX_PICKER_SOCKET:-}" ]; then
+    tmux -L "$TMUX_PICKER_SOCKET" "$@"
+  else
+    tmux "$@"
+  fi
+}
+
+# Resolve the "root session" for a worktree/ticket session: the session the
+# user should jump back to when they're done. Prints the root session name
+# and returns 0, or returns 1 with nothing printed if none can be resolved.
+#
+# The @root_session tmux user option always wins when set to a non-empty
+# value (it's a shared cross-repo contract: any tool can point a session at
+# its root by setting this option). Otherwise fall back to git: if the
+# session's path is a linked worktree (a ".git" FILE, not directory — same
+# check the `wt` column and `kill` use), derive the root session name from
+# the main checkout's directory basename, mapping dots to dashes. This
+# mirrors session_name_of_dir in work.ml, which names sessions
+# `String.map (fun c -> if c = '.' then '-' else c) (Filename.basename dir)`.
+root_session_of() {
+  local session="$1"
+
+  local opt
+  opt=$(_tmux show-options -qv -t "$session" @root_session 2>/dev/null) || opt=""
+  if [ -n "$opt" ]; then
+    printf '%s\n' "$opt"
+    return 0
+  fi
+
+  local path
+  path=$(_tmux display-message -p -t "$session" '#{session_path}' 2>/dev/null) || return 1
+  [ -n "$path" ] && [ -d "$path" ] || return 1
+  [ -f "$path/.git" ] || return 1
+
+  local common root_dir name
+  common=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 1
+  [ -n "$common" ] || return 1
+  root_dir="${common%/.git}"
+  name=$(basename "$root_dir" | tr '.' '-')
+  [ -n "$name" ] || return 1
+  printf '%s\n' "$name"
+  return 0
+}
+
+# Switch the client back to a session's root session (see root_session_of).
+# Never aborts and never auto-creates the target: if no root can be
+# resolved, the root is the session itself, or the resolved root session
+# doesn't exist, print a short message and return without switching.
+jump_root() {
+  local session="${1:-}"
+  [ -n "$session" ] || session=$(_tmux display-message -p '#S' 2>/dev/null || true)
+  [ -n "$session" ] || return 0
+
+  local target
+  if ! target=$(root_session_of "$session"); then
+    _tmux display-message "no root session for '$session'" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  if [ "$target" = "$session" ]; then
+    _tmux display-message "already at root session '$session'" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  if ! _tmux has-session -t "=$target" 2>/dev/null; then
+    _tmux display-message "root session '$target' not found" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  _tmux switch-client -t "=$target" >/dev/null 2>&1 || true
+  return 0
+}
+
 c_dim() { printf '\033[2m%s\033[0m' "$1"; }
 c_green() { printf '\033[32m%s\033[0m' "$1"; }
 c_yellow() { printf '\033[33m%s\033[0m' "$1"; }
@@ -241,6 +320,18 @@ case "${1:-}" in
     fi
     exit 0
     ;;
+  root-session)
+    shift
+    session="${1:-}"
+    [ -n "$session" ] || session=$(_tmux display-message -p '#S' 2>/dev/null || true)
+    root_session_of "$session"
+    exit $?
+    ;;
+  jump-root)
+    shift
+    jump_root "${1:-}"
+    exit 0
+    ;;
 esac
 
 # Main picker
@@ -270,11 +361,12 @@ fzf_args=(
   --header-lines=1
   --disabled
   --prompt="[N] session > "
-  --header="NORMAL — enter:switch | x:kill | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close"
+  --header="NORMAL — enter:switch | x:kill | g:root | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close"
   --bind="j:down,k:up"
   --bind="x:execute-silent($SELF kill {1})+reload($SELF list)"
-  --bind="i:unbind(i,j,k,x,q,1,2,3,4,5,6,7,8,9)+enable-search+change-prompt([I] filter > )+change-header(INSERT — type to filter | enter:switch | esc:normal mode)"
-  --bind='esc:transform:case "$FZF_PROMPT" in "[I] "*) echo "disable-search+change-prompt([N] session > )+change-header(NORMAL — enter:switch | x:kill | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close)+rebind(i,j,k,x,q,1,2,3,4,5,6,7,8,9)";; *) echo abort;; esac'
+  --bind="g:execute-silent($SELF jump-root)+abort"
+  --bind="i:unbind(i,j,k,x,g,q,1,2,3,4,5,6,7,8,9)+enable-search+change-prompt([I] filter > )+change-header(INSERT — type to filter | enter:switch | esc:normal mode)"
+  --bind='esc:transform:case "$FZF_PROMPT" in "[I] "*) echo "disable-search+change-prompt([N] session > )+change-header(NORMAL — enter:switch | x:kill | g:root | 1-9:jump | i:filter | q/esc:quit | [merged]=safe to close)+rebind(i,j,k,x,g,q,1,2,3,4,5,6,7,8,9)";; *) echo abort;; esac'
   --bind="q:abort"
 )
 
