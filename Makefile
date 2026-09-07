@@ -137,7 +137,7 @@ switch: submodules
 	fi
 	@CONFIG="jowi@$$([ "$$(uname -s)" = "Darwin" ] && echo darwin || echo nixos)"; \
 	echo "🏠 Applying home-manager configuration $$CONFIG..."; \
-	nix run home-manager -- switch --flake "git+file://$$(pwd)#$$CONFIG"
+	NIXPKGS_ALLOW_UNFREE=1 nix run home-manager -- switch --impure --flake "git+file://$$(pwd)#$$CONFIG"
 
 # Install thatch and register it as a global Claude Code MCP server
 # CLAUDE.md instructions, hooks, and skills are managed by devtools/claude/ and deployed via j export

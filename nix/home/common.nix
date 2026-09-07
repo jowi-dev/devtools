@@ -1,8 +1,8 @@
-# `tskmstr`, `vdiff-nvim`, and `vdiff` are provided via extraSpecialArgs when
-# this repo's flake builds the home config. Consumers that import this module
-# directly (e.g. the system-wide nixos-configs flake) may not provide them, so
-# they default to null and are skipped.
-{ config, pkgs, lib, tskmstr ? null, vdiff-nvim ? null, vdiff ? null, ... }:
+# `tskmstr`, `thatch`, `vdiff-nvim`, and `vdiff` are provided via
+# extraSpecialArgs when this repo's flake builds the home config. Consumers that
+# import this module directly (e.g. the system-wide nixos-configs flake) may not
+# provide them, so they default to null and are skipped.
+{ config, pkgs, lib, tskmstr ? null, thatch ? null, vdiff-nvim ? null, vdiff ? null, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
@@ -17,6 +17,11 @@ let
   tskmstrPackages = lib.warnIf (tskmstr == null)
     "tskmstr not provided (imported without extraSpecialArgs) — omitting it from home.packages"
     (lib.optional (tskmstr != null) tskmstr.packages.${pkgs.system}.default);
+  # thatch is passed via extraSpecialArgs; skip it when a consumer imports this
+  # module without providing it (see the default above).
+  thatchPackages = lib.warnIf (thatch == null)
+    "thatch not provided (imported without extraSpecialArgs) — omitting it from home.packages"
+    (lib.optional (thatch != null) thatch.packages.${pkgs.system}.default);
   # vdiff is passed via extraSpecialArgs; skip it when a consumer imports this
   # module without providing it (see the default above).
   vdiffPackages = lib.warnIf (vdiff == null)
@@ -26,7 +31,7 @@ in
 {
   home.stateVersion = "24.05";
 
-  home.packages = graphifyPackages ++ tskmstrPackages ++ vdiffPackages ++ [
+  home.packages = graphifyPackages ++ tskmstrPackages ++ thatchPackages ++ vdiffPackages ++ [
     j
     pkgs.ripgrep
     pkgs.fzf
@@ -40,6 +45,9 @@ in
     pkgs.universal-ctags
     pkgs.gcc # required for nvim-treesitter to compile parsers
     pkgs.tree-sitter # tree-sitter CLI (required for :TSInstall)
+
+    # AI coding harnesses
+    pkgs.claude-code
 
     # Language servers
     pkgs.beamPackages.expert # Elixir

@@ -11,6 +11,8 @@
 
     tskmstr.url = "github:jowi-dev/tskmstr";
 
+    thatch.url = "github:jowi-dev/thatch";
+
     vdiff-nvim = {
       url = "github:jowi-dev/vdiff.nvim";
       flake = false;
@@ -19,7 +21,7 @@
     vdiff.url = "github:jowi-dev/vdiff";
   };
 
-  outputs = { self, nixpkgs, home-manager, tskmstr, vdiff-nvim, vdiff, ... }:
+  outputs = { self, nixpkgs, home-manager, tskmstr, thatch, vdiff-nvim, vdiff, ... }:
     let
       systems = {
         darwin = "aarch64-darwin";
@@ -51,7 +53,7 @@
       homeConfigurations = {
         "jowi@darwin" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.darwin};
-          extraSpecialArgs = { inherit tskmstr vdiff-nvim vdiff; };
+          extraSpecialArgs = { inherit tskmstr thatch vdiff-nvim vdiff; };
           modules = commonModules ++ [
             {
               home.username = "jowi";
@@ -62,7 +64,7 @@
 
         "jowi@nixos" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.nixos};
-          extraSpecialArgs = { inherit tskmstr vdiff-nvim vdiff; };
+          extraSpecialArgs = { inherit tskmstr thatch vdiff-nvim vdiff; };
           modules = commonModules ++ [
             {
               home.username = "jowi";
