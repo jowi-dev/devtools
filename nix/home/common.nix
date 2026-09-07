@@ -36,7 +36,6 @@ in
     pkgs.ripgrep
     pkgs.fzf
     pkgs.bat
-    pkgs.tmux
     pkgs.tree
     pkgs.nnn
     pkgs.direnv
@@ -98,6 +97,21 @@ in
   # Link init.lua and lua config — don't link pack/ since plugins come from nixpkgs above
   xdg.configFile."nvim/init.lua".source = ./../../nvim/init.lua;
   xdg.configFile."nvim/lua".source = ./../../nvim/lua;
+
+  # Tmux — config lives in this repo's .tmux.conf. programs.tmux installs the
+  # tmux package and writes ~/.config/tmux/tmux.conf. The shell is derived from
+  # Nix so it resolves correctly on both NixOS and nix-darwin (no hardcoded
+  # /opt/homebrew path). sensibleOnTop is off because .tmux.conf is self-contained.
+  programs.tmux = {
+    enable = true;
+    sensibleOnTop = false;
+    shell = "${pkgs.fish}/bin/fish";
+    extraConfig = builtins.readFile ./../../.tmux.conf;
+  };
+
+  # Session-picker + jump-root scripts referenced by .tmux.conf key bindings
+  # (bind s / bind g) at ~/.config/tmux/scripts/.
+  xdg.configFile."tmux/scripts".source = ./../../scripts;
 
   # Starship prompt — loaded from this repo's starship.toml
   programs.starship = {
