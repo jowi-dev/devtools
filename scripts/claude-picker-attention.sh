@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # claude-picker-attention.sh — Claude Code hook plugin for the tmux session
 # picker. Sets/clears the @picker_status tmux user option on a session so
-# tmux-session-picker.sh can render an attention symbol on that session's
-# row. Deliberately decoupled: the picker only reads @picker_status, it
-# doesn't know this script (or Claude Code) exists — any other tool can set
-# the same option to integrate.
+# pckr can render an attention symbol on that session's row. Deliberately
+# decoupled: the picker only reads @picker_status, it doesn't know this
+# script (or Claude Code) exists — any other tool can set the same option
+# to integrate.
 #
 # Subcommands:
 #   question  -- set @picker_status to ❓ (AskUserQuestion is pending)

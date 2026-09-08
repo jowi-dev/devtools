@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # phoenix-picker-server.sh — tmux session picker plugin that marks the
 # session owning the running Phoenix dev server. Sets/clears the
-# @picker_server tmux user option so tmux-session-picker.sh can render a
-# symbol on that session's row. Deliberately decoupled: the picker only
-# reads @picker_server, it doesn't know this script exists.
+# @picker_server tmux user option so pckr can render a symbol on that
+# session's row. Deliberately decoupled: the picker only reads
+# @picker_server, it doesn't know this script exists.
 #
 # A dev server has no start/stop event to hook into, so this detects by
 # scanning: find the pid listening on the configured port, walk its parent
