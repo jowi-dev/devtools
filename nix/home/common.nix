@@ -1,8 +1,8 @@
-# `tskmstr`, `thatch`, `vdiff-nvim`, and `vdiff` are provided via
+# `tskmstr`, `thatch`, `vdiff-nvim`, `vdiff`, and `pckr` are provided via
 # extraSpecialArgs when this repo's flake builds the home config. Consumers that
 # import this module directly (e.g. the system-wide nixos-configs flake) may not
 # provide them, so they default to null and are skipped.
-{ config, pkgs, lib, tskmstr ? null, thatch ? null, vdiff-nvim ? null, vdiff ? null, ... }:
+{ config, pkgs, lib, tskmstr ? null, thatch ? null, vdiff-nvim ? null, vdiff ? null, pckr ? null, ... }:
 
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
@@ -27,11 +27,16 @@ let
   vdiffPackages = lib.warnIf (vdiff == null)
     "vdiff not provided (imported without extraSpecialArgs) — omitting it from home.packages"
     (lib.optional (vdiff != null) vdiff.packages.${pkgs.system}.default);
+  # pckr is passed via extraSpecialArgs; skip it when a consumer imports this
+  # module without providing it (see the default above).
+  pckrPackages = lib.warnIf (pckr == null)
+    "pckr not provided (imported without extraSpecialArgs) — omitting it from home.packages"
+    (lib.optional (pckr != null) pckr.packages.${pkgs.system}.default);
 in
 {
   home.stateVersion = "24.05";
 
-  home.packages = graphifyPackages ++ tskmstrPackages ++ thatchPackages ++ vdiffPackages ++ [
+  home.packages = graphifyPackages ++ tskmstrPackages ++ thatchPackages ++ vdiffPackages ++ pckrPackages ++ [
     j
     pkgs.ripgrep
     pkgs.fzf
@@ -112,8 +117,10 @@ in
     extraConfig = builtins.readFile ./../../.tmux.conf;
   };
 
-  # Session-picker + jump-root scripts referenced by .tmux.conf key bindings
-  # (bind s / bind g) at ~/.config/tmux/scripts/.
+  # Plugin/hook scripts referenced by @picker_refresh_cmd and Claude Code
+  # hooks (claude-picker-attention.sh, phoenix-picker-server.sh) at
+  # ~/.config/tmux/scripts/. The session picker itself (bind s / bind g) is
+  # the pckr flake input, not a script in this repo.
   xdg.configFile."tmux/scripts".source = ./../../scripts;
 
   # opencode (AI coding agent) — config lives in this repo but is linked

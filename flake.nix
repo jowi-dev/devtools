@@ -19,9 +19,11 @@
     };
 
     vdiff.url = "github:jowi-dev/vdiff";
+
+    pckr.url = "github:jowi-dev/pckr";
   };
 
-  outputs = { self, nixpkgs, home-manager, tskmstr, thatch, vdiff-nvim, vdiff, ... }:
+  outputs = { self, nixpkgs, home-manager, tskmstr, thatch, vdiff-nvim, vdiff, pckr, ... }:
     let
       systems = {
         darwin = "aarch64-darwin";
@@ -53,7 +55,7 @@
       homeConfigurations = {
         "jowi@darwin" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.darwin};
-          extraSpecialArgs = { inherit tskmstr thatch vdiff-nvim vdiff; };
+          extraSpecialArgs = { inherit tskmstr thatch vdiff-nvim vdiff pckr; };
           modules = commonModules ++ [
             {
               home.username = "jowi";
@@ -64,7 +66,7 @@
 
         "jowi@nixos" = home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${systems.nixos};
-          extraSpecialArgs = { inherit tskmstr thatch vdiff-nvim vdiff; };
+          extraSpecialArgs = { inherit tskmstr thatch vdiff-nvim vdiff pckr; };
           modules = commonModules ++ [
             {
               home.username = "jowi";
