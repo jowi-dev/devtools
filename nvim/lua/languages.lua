@@ -47,3 +47,10 @@ vim.lsp.config('ocamllsp', {
   filetypes = { 'ocaml', 'ocaml.menhir', 'ocaml.interface', 'ocaml.ocamllex' },
 })
 vim.lsp.enable 'ocamllsp'
+
+vim.lsp.config('marksman', {
+  cmd = { 'marksman', 'server' },
+  root_markers = { '.marksman.toml', '.git' },
+  filetypes = { 'markdown' },
+})
+vim.lsp.enable 'marksman'
