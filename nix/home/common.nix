@@ -117,8 +117,10 @@ in
     extraConfig = builtins.readFile ./../../.tmux.conf;
   };
 
-  # Session-picker + jump-root scripts referenced by .tmux.conf key bindings
-  # (bind s / bind g) at ~/.config/tmux/scripts/.
+  # Plugin/hook scripts referenced by @picker_refresh_cmd and Claude Code
+  # hooks (claude-picker-attention.sh, phoenix-picker-server.sh) at
+  # ~/.config/tmux/scripts/. The session picker itself (bind s / bind g) is
+  # the pckr flake input, not a script in this repo.
   xdg.configFile."tmux/scripts".source = ./../../scripts;
 
   # opencode (AI coding agent) — config lives in this repo but is linked
