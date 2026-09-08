@@ -199,11 +199,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1788710346,
-        "narHash": "sha256-J2CP26bh0+xILjkoyg9FCncmWTfy853SehsyNUEAiWI=",
+        "lastModified": 1788877274,
+        "narHash": "sha256-/auZIb00o8b9dFef/xNO/r5lOec6qWxkqKql2BLTTpk=",
         "owner": "jowi-dev",
         "repo": "thatch",
-        "rev": "679326aea2c23e32d95d65c816e510dfc43fa1e8",
+        "rev": "8e84a8bf304eb86dd74afb44a04afc4b50e9ff4a",
         "type": "github"
       },
       "original": {
