@@ -54,3 +54,11 @@ vim.lsp.config('marksman', {
   filetypes = { 'markdown' },
 })
 vim.lsp.enable 'marksman'
+
+-- No LSP server for csv; disable diagnostics per-buffer (not globally) for csv filetype
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'csv',
+  callback = function(ev)
+    vim.diagnostic.enable(false, { bufnr = ev.buf })
+  end,
+})
