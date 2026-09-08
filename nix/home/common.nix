@@ -44,9 +44,12 @@ in
     pkgs.universal-ctags
     pkgs.gcc # required for nvim-treesitter to compile parsers
     pkgs.tree-sitter # tree-sitter CLI (required for :TSInstall)
+    pkgs.jq
+    pkgs.curl
 
     # AI coding harnesses
     pkgs.claude-code
+    pkgs.opencode
 
     # Language servers
     pkgs.beamPackages.expert # Elixir
@@ -113,6 +116,13 @@ in
   # (bind s / bind g) at ~/.config/tmux/scripts/.
   xdg.configFile."tmux/scripts".source = ./../../scripts;
 
+  # opencode (AI coding agent) — config lives in this repo but is linked
+  # out-of-store so model edits in opencode/opencode.json take effect live
+  # without a home-manager rebuild. The Venice API key is NOT in this file;
+  # it is supplied via `opencode auth login` (stored in ~/.local/share/opencode/auth.json).
+  xdg.configFile."opencode/opencode.json".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/devtools/opencode/opencode.json";
+
   # Starship prompt — loaded from this repo's starship.toml
   programs.starship = {
     enable = true;
@@ -162,6 +172,22 @@ in
       # Homebrew (macOS only)
       if test -d /opt/homebrew
         eval (/opt/homebrew/bin/brew shellenv)
+      end
+
+      # venice-models — list Venice.ai text models (reads key from opencode auth)
+      function venice-models --description 'List Venice.ai text model IDs'
+        set -l auth "$HOME/.local/share/opencode/auth.json"
+        if not test -f "$auth"
+          echo "No opencode auth found. Run: opencode auth login  (pick Venice.ai)" >&2
+          return 1
+        end
+        set -l key (jq -r '.venice.key // empty' "$auth" 2>/dev/null)
+        if test -z "$key"
+          echo "No Venice key in $auth. Run: opencode auth login" >&2
+          return 1
+        end
+        curl -s https://api.venice.ai/api/v1/models -H "Authorization: Bearer $key" \
+          | jq -r '.data[] | select(.type=="text") | .id'
       end
     '';
   };
