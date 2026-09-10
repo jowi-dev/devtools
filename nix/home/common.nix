@@ -73,6 +73,10 @@ in
       else "/etc/nixos/nixos-configs";
     FILE_EXPLORER = "nnn";
     MACHINE_TYPE = "personal";
+    # Enables thatch's async fact extraction in opencode — child sessions run
+    # in the background instead of blocking the turn. Consumed by the
+    # @jeffober/thatch opencode plugin (see opencode/opencode.json).
+    OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS = "true";
   };
 
   # Neovim — most plugins come from nixpkgs (pkgs.vimPlugins below). Two are
