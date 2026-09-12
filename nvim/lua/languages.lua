@@ -47,3 +47,18 @@ vim.lsp.config('ocamllsp', {
   filetypes = { 'ocaml', 'ocaml.menhir', 'ocaml.interface', 'ocaml.ocamllex' },
 })
 vim.lsp.enable 'ocamllsp'
+
+vim.lsp.config('marksman', {
+  cmd = { 'marksman', 'server' },
+  root_markers = { '.marksman.toml', '.git' },
+  filetypes = { 'markdown' },
+})
+vim.lsp.enable 'marksman'
+
+-- No LSP server for csv; disable diagnostics per-buffer (not globally) for csv filetype
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'csv',
+  callback = function(ev)
+    vim.diagnostic.enable(false, { bufnr = ev.buf })
+  end,
+})

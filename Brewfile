@@ -27,6 +27,7 @@ brew "chafa"
 brew "flyctl"
 brew "gum"
 brew "bun"
+brew "marksman"
 
 
 # Applications
