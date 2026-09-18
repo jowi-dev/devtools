@@ -11,7 +11,7 @@
 
     tskmstr.url = "github:jowi-dev/tskmstr";
 
-    thatch.url = "github:jowi-dev/thatch";
+    thatch.url = "github:sysread/thatch";
 
     vdiff-nvim = {
       url = "github:jowi-dev/vdiff.nvim";
