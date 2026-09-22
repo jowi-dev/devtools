@@ -24,9 +24,21 @@ let
     (lib.optional (tskmstr != null) tskmstr.packages.${pkgs.system}.default);
   # thatch is passed via extraSpecialArgs; skip it when a consumer imports this
   # module without providing it (see the default above).
+  #
+  # depsHash is overridden here rather than trusted from upstream: the
+  # node_modules FOD hash depends on both bun.lock AND the bun version doing
+  # the install, so upstream's pinned hashes (regenerated only on their build
+  # platform) routinely go stale for aarch64-darwin. When a thatch bump fails
+  # with "hash mismatch in fixed-output derivation ...thatch-node-modules...",
+  # copy the "got:" hash from the error over the matching entry below.
+  thatchDepsHash = {
+    x86_64-linux = "sha256-FETtq7n3Q/e2bD0belKNpzSvsmVXcuefBV456axlLpo=";
+    aarch64-darwin = "sha256-Ml4tjJa5ZmgQEl5yZInT8qSyThFVsnsotrKI/rmb2XU=";
+  };
   thatchPackages = lib.warnIf (thatch == null)
     "thatch not provided (imported without extraSpecialArgs) — omitting it from home.packages"
-    (lib.optional (thatch != null) thatch.packages.${pkgs.system}.default);
+    (lib.optional (thatch != null)
+      ((thatch.packages.${pkgs.system}.default).override { depsHash = thatchDepsHash; }));
   # vdiff is passed via extraSpecialArgs; skip it when a consumer imports this
   # module without providing it (see the default above).
   vdiffPackages = lib.warnIf (vdiff == null)
