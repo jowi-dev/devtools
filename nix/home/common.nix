@@ -7,6 +7,11 @@
 let
   j = import ../pkgs/j.nix { inherit pkgs; };
   graphify = import ../pkgs/graphify.nix { inherit pkgs; };
+  # AI harnesses are pinned to official upstream release binaries in
+  # nix/pkgs/ai-sources.json (bump with scripts/update-ai-sources.sh) instead
+  # of pkgs.claude-code/pkgs.opencode, which lag upstream releases.
+  claude-code = import ../pkgs/claude-code.nix { inherit pkgs; };
+  opencode = import ../pkgs/opencode.nix { inherit pkgs; };
   # graphify is absent from some nixpkgs pins (e.g. NixOS's system nixpkgs);
   # skip it gracefully instead of failing evaluation.
   graphifyPackages = lib.warnIf (graphify == null)
@@ -53,8 +58,8 @@ in
     pkgs.curl
 
     # AI coding harnesses
-    pkgs.claude-code
-    pkgs.opencode
+    claude-code
+    opencode
 
     # Language servers
     pkgs.beamPackages.expert # Elixir

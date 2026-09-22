@@ -100,6 +100,22 @@ j project search [pattern]
 # Fish abbreviation: jps
 ```
 
+### AI Harness Updates (claude-code, opencode)
+```bash
+# Bump both pins to the latest official upstream releases
+# (rewrites nix/pkgs/ai-sources.json using upstream-published checksums)
+scripts/update-ai-sources.sh
+
+# Then review, commit, and apply
+git diff nix/pkgs/ai-sources.json
+make switch
+```
+
+These two packages are deliberately NOT taken from nixpkgs (packaging lag) or
+Homebrew — they are pinned to official release binaries in
+`nix/pkgs/ai-sources.json`, consumed by `nix/pkgs/claude-code.nix` and
+`nix/pkgs/opencode.nix`.
+
 ### Nix Templates
 ```bash
 # List available templates
