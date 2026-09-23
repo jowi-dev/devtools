@@ -35,8 +35,8 @@
               pkgs.lib.makeLibraryPath [
                 # for raylib and openGL
                 pkgs.libGL
-                pkgs.xorg.libX11
-                pkgs.xorg.libXi
+                pkgs.libx11
+                pkgs.libxi
 
                 # for SDL and SDL2
                 pkgs.SDL2
@@ -88,11 +88,11 @@
             pkgs.glxinfo
             pkgs.lld
             pkgs.gnumake
-            pkgs.xorg.libX11.dev
-            pkgs.xorg.libX11
-            pkgs.xorg.libXft
-            pkgs.xorg.libXi
-            pkgs.xorg.libXinerama
+            pkgs.libx11.dev
+            pkgs.libx11
+            pkgs.libxft
+            pkgs.libxi
+            pkgs.libxinerama
             pkgs.libGL
 
             ## not need because of vendor
@@ -111,9 +111,9 @@
 
 
             # needed for raylib
-            pkgs.xorg.libXcursor
-            pkgs.xorg.libXrandr
-            pkgs.xorg.libXinerama
+            pkgs.libxcursor
+            pkgs.libxrandr
+            pkgs.libxinerama
           ];
         };
       });
