@@ -16,11 +16,11 @@ CC_CHANNEL="${CLAUDE_CODE_CHANNEL:-latest}"
 CC_VERSION=$(curl -fsS "$GCS/$CC_CHANNEL")
 CC_MANIFEST=$(curl -fsS "$GCS/$CC_VERSION/manifest.json")
 CC_DARWIN=$(jq -er '.platforms["darwin-arm64"].checksum' <<<"$CC_MANIFEST")
-CC_LINUX=$(jq -er '.platforms["linux-x64-musl"].checksum' <<<"$CC_MANIFEST")
+CC_LINUX=$(jq -er '.platforms["linux-x64"].checksum' <<<"$CC_MANIFEST")
 
 OC_VERSION=$(curl -fsS https://registry.npmjs.org/opencode-ai/latest | jq -er .version)
 OC_DARWIN=$(curl -fsS "https://registry.npmjs.org/opencode-darwin-arm64/$OC_VERSION" | jq -er .dist.integrity)
-OC_LINUX=$(curl -fsS "https://registry.npmjs.org/opencode-linux-x64-musl/$OC_VERSION" | jq -er .dist.integrity)
+OC_LINUX=$(curl -fsS "https://registry.npmjs.org/opencode-linux-x64/$OC_VERSION" | jq -er .dist.integrity)
 
 jq -n \
   --arg ccv "$CC_VERSION" --arg ccd "$CC_DARWIN" --arg ccl "$CC_LINUX" \
@@ -30,14 +30,14 @@ jq -n \
       version: $ccv,
       platforms: {
         "aarch64-darwin": { artifact: "darwin-arm64", sha256: $ccd },
-        "x86_64-linux": { artifact: "linux-x64-musl", sha256: $ccl }
+        "x86_64-linux": { artifact: "linux-x64", sha256: $ccl }
       }
     },
     opencode: {
       version: $ocv,
       platforms: {
         "aarch64-darwin": { npmPackage: "opencode-darwin-arm64", hash: $ocd },
-        "x86_64-linux": { npmPackage: "opencode-linux-x64-musl", hash: $ocl }
+        "x86_64-linux": { npmPackage: "opencode-linux-x64", hash: $ocl }
       }
     }
   }' > "$OUT"

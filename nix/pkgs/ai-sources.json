@@ -7,8 +7,8 @@
         "sha256": "387a5c5dcdbb815085edf0baf79591f9d8894efe922bceaf3d75b1b08055229d"
       },
       "x86_64-linux": {
-        "artifact": "linux-x64-musl",
-        "sha256": "8d25ffbf600882d7b985706cc10ea45995060637ed009b5700b65e162bb00b96"
+        "artifact": "linux-x64",
+        "sha256": "1e08503dbdf3c2cb0d706d32f3408277388d1c76ef108673e8fe42c1b322925b"
       }
     }
   },
@@ -20,8 +20,8 @@
         "hash": "sha512-sDsHk/A6FNqeN5NuAiII6AAhi4pJIFcIY0S2yjG9gToIIVaqrQRaHQ6g0kpoVqTiMci8tvaND6tWD4eDT3ahFw=="
       },
       "x86_64-linux": {
-        "npmPackage": "opencode-linux-x64-musl",
-        "hash": "sha512-ktS7x5Ms+sVMCAb2oRpPKGk10isRjHkwBz6ordNOlx0epx6JQPsTydzJmpLBSdsiFAkfmZoBiYayKDXXU+rwXA=="
+        "npmPackage": "opencode-linux-x64",
+        "hash": "sha512-CIatvoyi8V5a56xyw6ZUnsKxB9wqYIZqfNeqUNWhBBY4aENAm907LP0xXAwL6tR0cYbqNl2+Dvx8mOqXIxbDeQ=="
       }
     }
   }
