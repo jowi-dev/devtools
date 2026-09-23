@@ -141,11 +141,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1790185483,
-        "narHash": "sha256-CGphAJ5nW2umEwWtFvL8U06LhvfY+OohxAduzVgsSmo=",
+        "lastModified": 1790187330,
+        "narHash": "sha256-N+frQ1FEFV+OvwEhmpijyy6H9jc4G5X7XKQNUXqXK/Q=",
         "owner": "jowi-dev",
         "repo": "pckr",
-        "rev": "606e8bcb0a9bd78d374748fccb1a46b42ed2f2c5",
+        "rev": "b127302f07f6515ee813d6df60dfff6193416d54",
         "type": "github"
       },
       "original": {
