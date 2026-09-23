@@ -68,6 +68,7 @@ in
     pkgs.tree-sitter # tree-sitter CLI (required for :TSInstall)
     pkgs.jq
     pkgs.curl
+    pkgs.delta # git delta
 
     # AI coding harnesses
     claude-code
