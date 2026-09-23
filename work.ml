@@ -525,7 +525,7 @@ let run_lane name opts =
      configured in claude itself. Quoted the same naive single-quote way as
      prompt_tmp/permission_mode/etc below — this repo doesn't escape
      embedded quotes in any of these interpolations. *)
-  let model = match opts.model with Some m -> m | None -> "fable" in
+  let model = match opts.model with Some m -> m | None -> "opus" in
   let model_arg = sprintf " --model '%s'" model in
   (* Deploy the tm run-telemetry hooks to their stable runtime location and
      load them via --settings, rather than relying on whatever .claude a
