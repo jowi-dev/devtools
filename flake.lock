@@ -200,11 +200,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1789847550,
-        "narHash": "sha256-6jUaw8KjdvuLCil1hiiA6yL+pVphSxkhjyrIAijc7rY=",
+        "lastModified": 1790535760,
+        "narHash": "sha256-r3ewQ1wkqL6kLw2wnLAcKIM9CKOZBUBq32LQsSge9TM=",
         "owner": "sysread",
         "repo": "thatch",
-        "rev": "0a63464010632e26ebf1afae5c8612a5fe5954e0",
+        "rev": "c24042fc4475b2c329062b121d0e80a46e054dd7",
         "type": "github"
       },
       "original": {
