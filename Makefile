@@ -71,7 +71,7 @@ install:
 		echo "✅ MACHINE_TYPE already configured"; \
 	fi
 
-	# Install thatch (persistent memory for AI coding agents)
+	# Register thatch (persistent memory for AI coding agents) with Claude Code
 	@$(MAKE) thatch
 
 	# Export all configs to system
@@ -139,15 +139,20 @@ switch: submodules
 	echo "🏠 Applying home-manager configuration $$CONFIG..."; \
 	NIXPKGS_ALLOW_UNFREE=1 nix run home-manager -- switch --impure --flake "git+file://$$(pwd)#$$CONFIG"
 
-# Install thatch and register it as a global Claude Code MCP server
+# Register thatch as a global Claude Code MCP server. The binary itself comes
+# from the thatch flake input via home-manager (`make switch`); the path is
+# pinned to ~/.nix-profile so a stray global npm install can't shadow it.
 # CLAUDE.md instructions, hooks, and skills are managed by devtools/claude/ and deployed via j export
+THATCH_BIN := $(HOME)/.nix-profile/bin/thatch
 thatch:
-	@echo "📦 Installing thatch..."
-	@npm install -g @jeffober/thatch
-	@mkdir -p ~/.config/thatch
-	@echo "⚙️  Registering thatch MCP server with Claude Code..."
-	@claude mcp add --scope user thatch -- $$(which thatch) mcp || echo "⚠️  MCP registration failed — run manually: claude mcp add --scope user thatch -- $$(which thatch) mcp"
-	@echo "✅ Thatch installed and configured"
+	@if [ ! -x "$(THATCH_BIN)" ]; then \
+		echo "⚠️  $(THATCH_BIN) not found — run 'make switch' first, then 'make thatch'"; \
+		exit 0; \
+	fi; \
+	mkdir -p ~/.config/thatch; \
+	echo "⚙️  Registering thatch MCP server with Claude Code..."; \
+	claude mcp add --scope user thatch -- "$(THATCH_BIN)" mcp || echo "⚠️  MCP registration failed — run manually: claude mcp add --scope user thatch -- $(THATCH_BIN) mcp"; \
+	echo "✅ Thatch configured"
 
 clean:
 	dune clean && rm -f j
