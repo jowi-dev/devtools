@@ -16,9 +16,9 @@ return {
 # -----------------------------------------------------------------------------
 #  {} 
 # -----------------------------------------------------------------------------
-@doc delegate_to: {{PapaPal.Web.API.V2.Resolvers.{}, :call, 3}}
+@doc delegate_to: {{MyAppWeb.Resolvers.{}, :call, 3}}
 defdelegate {}(parent, args, context),
-  to: PapaPal.Web.API.V2.Resolvers.{},
+  to: MyAppWeb.Resolvers.{},
   as: :call]], { i(1), i(2), i(3), i(2) })),
   
   -- Defmodule
@@ -33,7 +33,7 @@ This is gonna be awesome dude, write your tests first and eat your vegetables
 
 require Logger
 
-end]], { i(1, "PapaPal") })),
+end]], { i(1, "MyApp") })),
   
   -- Deprecated module
   s("deprecated", t({
@@ -92,7 +92,7 @@ end]], { i(1), i(2) })),
   -- Environment variable
   s("env_var", fmt([[
 defp get_{} do
-  Application.get_env(:papa_pal, :{})
+  Application.get_env(:my_app, :{})
 end]], { i(1), i(1) })),
   
   -- Soft migration
