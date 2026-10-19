@@ -23,14 +23,6 @@
             "timeout": 10
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/opt/homebrew/bin/thatch reminder"
-          }
-        ]
       }
     ],
     "SessionEnd": [
@@ -78,14 +70,6 @@
             "type": "command",
             "command": "/Users/jowi/.claude/hooks/peon-ping/scripts/hook-handle-use.sh",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/opt/homebrew/bin/thatch flush-tools"
           }
         ]
       }
@@ -151,16 +135,6 @@
             "command": "/Users/jowi/.claude/hooks/peon-ping/peon.sh",
             "timeout": 10,
             "async": true
-          }
-        ]
-      }
-    ],
-    "PostToolBatch": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/opt/homebrew/bin/thatch buffer-batch"
           }
         ]
       }
