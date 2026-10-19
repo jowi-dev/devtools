@@ -71,12 +71,13 @@ install:
 		echo "✅ MACHINE_TYPE already configured"; \
 	fi
 
-	# Register thatch (persistent memory for AI coding agents) with Claude Code
-	@$(MAKE) thatch
-
 	# Export all configs to system
 	@echo "⚙️  Exporting all configs to system locations..."
 	@j export --all
+
+	# Re-apply thatch (persistent memory for AI coding agents) to Claude Code;
+	# must follow j export, which overwrites ~/.claude/{CLAUDE.md,settings.json}
+	@$(MAKE) thatch
 
 	# Set Fish as default shell
 	@echo "🐟 Setting Fish as default shell..."
@@ -139,20 +140,18 @@ switch: submodules
 	echo "🏠 Applying home-manager configuration $$CONFIG..."; \
 	NIXPKGS_ALLOW_UNFREE=1 nix run home-manager -- switch --impure --flake "git+file://$$(pwd)#$$CONFIG"
 
-# Register thatch as a global Claude Code MCP server. The binary itself comes
-# from the thatch flake input via home-manager (`make switch`); the path is
-# pinned to ~/.nix-profile so a stray global npm install can't shadow it.
-# CLAUDE.md instructions, hooks, and skills are managed by devtools/claude/ and deployed via j export
-THATCH_BIN := $(HOME)/.nix-profile/bin/thatch
+# Configure thatch for Claude Code: MCP server, hooks, CLAUDE.md block, and
+# skills. home-manager activation already runs this on every `make switch` /
+# nixos-rebuild (see home.activation.thatchSetup in nix/home/common.nix); this
+# target re-applies it after something overwrote ~/.claude (e.g. j export).
+# The binary comes from the thatch flake input via home-manager.
 thatch:
-	@if [ ! -x "$(THATCH_BIN)" ]; then \
-		echo "⚠️  $(THATCH_BIN) not found — run 'make switch' first, then 'make thatch'"; \
+	@if ! command -v thatch > /dev/null 2>&1; then \
+		echo "⚠️  thatch not found — run 'make switch' first, then 'make thatch'"; \
 		exit 0; \
 	fi; \
-	mkdir -p ~/.config/thatch; \
-	echo "⚙️  Registering thatch MCP server with Claude Code..."; \
-	claude mcp add --scope user thatch -- "$(THATCH_BIN)" mcp || echo "⚠️  MCP registration failed — run manually: claude mcp add --scope user thatch -- $(THATCH_BIN) mcp"; \
-	echo "✅ Thatch configured"
+	echo "⚙️  Running thatch setup for Claude Code..."; \
+	thatch setup --claude --global || echo "⚠️  thatch setup failed — run manually: thatch setup --claude --global"
 
 clean:
 	dune clean && rm -f j

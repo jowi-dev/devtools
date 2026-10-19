@@ -97,6 +97,31 @@ in
     OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS = "true";
   };
 
+  # Register thatch with Claude Code (MCP server, hooks, CLAUDE.md block,
+  # skills) on every activation, so a rebuild — `make switch` here, or
+  # `nixos-rebuild` on hosts importing this module — leaves it working.
+  # `thatch setup` is idempotent: it upserts its marked CLAUDE.md block,
+  # replaces its own hooks in settings.json, and skips MCP registration when
+  # one exists.
+  #
+  # The profile bin dir goes first on PATH because setup bakes the first
+  # `thatch` it finds into hooks/MCP config; without it, it falls back to the
+  # raw store path, which goes stale on the next bump or GC. It also lets
+  # setup find `claude` for `claude mcp add`. Files previously deployed
+  # read-only (e.g. copied out of the store) make setup die with EACCES, so
+  # restore owner write first. Failure warns rather than aborting activation.
+  home.activation.thatchSetup = lib.mkIf (thatch != null)
+    (lib.hm.dag.entryAfter [ "writeBoundary" "installPackages" "linkGeneration" ] ''
+      export PATH="${config.home.profileDirectory}/bin:$PATH"
+      for f in "$HOME/.claude/CLAUDE.md" "$HOME/.claude/settings.json"; do
+        if [ -f "$f" ] && [ ! -L "$f" ] && [ ! -w "$f" ]; then
+          run chmod u+w "$f"
+        fi
+      done
+      run --quiet thatch setup --claude --global \
+        || warnEcho "thatch setup failed — run 'thatch setup --claude --global' manually"
+    '');
+
   # Neovim — most plugins come from nixpkgs (pkgs.vimPlugins below). Two are
   # built from source instead: nvim-tag-stack is plain files committed
   # directly in this repo (nvim/pack/plugins/start/nvim-tag-stack), and
