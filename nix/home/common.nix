@@ -33,7 +33,7 @@ let
   # copy the "got:" hash from the error over the matching entry below.
   thatchDepsHash = {
     x86_64-linux = "sha256-NydNcsySh3ykqH+lpC5JclrHFQ0nEcLm+ojU2JWqfWs=";
-    aarch64-darwin = "sha256-Ml4tjJa5ZmgQEl5yZInT8qSyThFVsnsotrKI/rmb2XU=";
+    aarch64-darwin = "sha256-0SP015i/O2QKvAJPA/GJPUf1HARYLtiQ1J9vGtwWfsI=";
   };
   thatchPackages = lib.warnIf (thatch == null)
     "thatch not provided (imported without extraSpecialArgs) — omitting it from home.packages"
