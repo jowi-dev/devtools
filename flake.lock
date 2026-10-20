@@ -219,11 +219,11 @@
         "nixpkgs": "nixpkgs_4"
       },
       "locked": {
-        "lastModified": 1792429958,
-        "narHash": "sha256-gcx3Jjwi4QkK5r/Ln5f4X0xTmGmQWumD4w3aIlX3ioQ=",
+        "lastModified": 1792506865,
+        "narHash": "sha256-r1RIAXfIoMRiQ8woB/DzKmOMaCozBBj6bSfFI9Gzkdk=",
         "owner": "jowi-dev",
         "repo": "tskmstr",
-        "rev": "78adb417c5ac73ec076f3b4c7a079476209b547d",
+        "rev": "57f291a2e2e103833a7717b9d32ba4ede6eeb2cd",
         "type": "github"
       },
       "original": {
