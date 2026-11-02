@@ -200,11 +200,11 @@
         "nixpkgs": "nixpkgs_3"
       },
       "locked": {
-        "lastModified": 1792202790,
-        "narHash": "sha256-TObpFnkUXzpapsmPVaB6yRiR7PaPYrsGJ/3yhPBKF2w=",
+        "lastModified": 1793398858,
+        "narHash": "sha256-Cv8CiRPhmX//DRYqshBEsNxQZZ3jmoArREkkpCoKQ9c=",
         "owner": "sysread",
         "repo": "thatch",
-        "rev": "7d0a2d86649231539529892e3d6317f5a8fd6d61",
+        "rev": "93ba8ac1b5ddb6319975d65ae9ca904b8f35aac3",
         "type": "github"
       },
       "original": {
@@ -219,11 +219,11 @@
         "nixpkgs": "nixpkgs_4"
       },
       "locked": {
-        "lastModified": 1792696896,
-        "narHash": "sha256-bhW12Qs+PNjCn8Jhz88mff1XnZlaKXQHmecO49pFaj8=",
+        "lastModified": 1793548684,
+        "narHash": "sha256-BHJQsDoFaVrejxU7iGeKgSK6IA5OSiln9QKqHide2hE=",
         "owner": "jowi-dev",
         "repo": "tskmstr",
-        "rev": "e6214a763080ee4ae9ff3d7b5325ab43885da1f2",
+        "rev": "e8c81c72ec53239f3ced46a7c1ba283b78e0adc4",
         "type": "github"
       },
       "original": {
