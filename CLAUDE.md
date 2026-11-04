@@ -132,6 +132,9 @@ nix flake init -t .#odin          # Odin graphics development
 ```bash
 # Build the j CLI (dune build inside nix develop, copies binary to ./j)
 make j
+
+# Upgrade Determinate Nix itself (sudo; not covered by make switch)
+make nix-upgrade
 ```
 
 ## Architecture

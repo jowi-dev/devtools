@@ -105,6 +105,17 @@ nix:
 		echo "✅ Nix already installed"; \
 	fi
 
+# Upgrade Determinate Nix to the latest release (needs sudo). Nix itself is
+# not managed by the flake, so `make switch` never updates it.
+nix-upgrade:
+	@if ! command -v determinate-nixd > /dev/null 2>&1; then \
+		echo "⚠️  determinate-nixd not found — is this a Determinate Nix install? Run 'make nix' first."; \
+		exit 1; \
+	fi
+	@echo "⬆️  Upgrading Determinate Nix (currently $$(nix --version))..."
+	@sudo determinate-nixd upgrade
+	@echo "✅ Now on $$(nix --version)"
+
 # Install direnv for automatic Nix shell activation
 direnv:
 	@if ! command -v direnv > /dev/null 2>&1; then \
@@ -156,4 +167,4 @@ thatch:
 clean:
 	dune clean && rm -f j
 
-.PHONY: install clean nix direnv thatch switch submodules
+.PHONY: install clean nix nix-upgrade direnv thatch switch submodules
