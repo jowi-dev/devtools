@@ -18,9 +18,12 @@ CC_MANIFEST=$(curl -fsS "$GCS/$CC_VERSION/manifest.json")
 CC_DARWIN=$(jq -er '.platforms["darwin-arm64"].checksum' <<<"$CC_MANIFEST")
 CC_LINUX=$(jq -er '.platforms["linux-x64"].checksum' <<<"$CC_MANIFEST")
 
-OC_VERSION=$(curl -fsS https://registry.npmjs.org/opencode-ai/latest | jq -er .version)
-OC_DARWIN=$(curl -fsS "https://registry.npmjs.org/opencode-darwin-arm64/$OC_VERSION" | jq -er .dist.integrity)
-OC_LINUX=$(curl -fsS "https://registry.npmjs.org/opencode-linux-x64/$OC_VERSION" | jq -er .dist.integrity)
+# opencode v2 is published under the scoped @opencode/cli package; the old
+# opencode-ai package's `latest` tag still points at 1.x.
+NPM=https://registry.npmjs.org/@opencode
+OC_VERSION=$(curl -fsS "$NPM/cli/latest" | jq -er .version)
+OC_DARWIN=$(curl -fsS "$NPM/cli-darwin-arm64/$OC_VERSION" | jq -er .dist.integrity)
+OC_LINUX=$(curl -fsS "$NPM/cli-linux-x64/$OC_VERSION" | jq -er .dist.integrity)
 
 jq -n \
   --arg ccv "$CC_VERSION" --arg ccd "$CC_DARWIN" --arg ccl "$CC_LINUX" \
@@ -36,8 +39,8 @@ jq -n \
     opencode: {
       version: $ocv,
       platforms: {
-        "aarch64-darwin": { npmPackage: "opencode-darwin-arm64", hash: $ocd },
-        "x86_64-linux": { npmPackage: "opencode-linux-x64", hash: $ocl }
+        "aarch64-darwin": { npmPackage: "@opencode/cli-darwin-arm64", hash: $ocd },
+        "x86_64-linux": { npmPackage: "@opencode/cli-linux-x64", hash: $ocl }
       }
     }
   }' > "$OUT"

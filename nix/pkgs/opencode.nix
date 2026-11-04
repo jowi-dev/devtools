@@ -1,4 +1,5 @@
-# opencode pinned directly to sst's official per-platform npm binaries,
+# opencode pinned directly to the official per-platform npm binaries
+# (@opencode/cli-<platform>, the v2 packages; v1 shipped as opencode-<platform>),
 # bypassing nixpkgs packaging lag. Bump with scripts/update-ai-sources.sh,
 # which reads the npm registry's SRI integrity hashes (no download needed).
 #
@@ -14,13 +15,16 @@ let
   system = pkgs.stdenv.hostPlatform.system;
   platform = oc.platforms.${system}
     or (throw "opencode: no pinned artifact for ${system} in ai-sources.json");
+  # Scoped tarballs drop the scope from the file name:
+  # @opencode/cli-darwin-arm64 -> .../@opencode/cli-darwin-arm64/-/cli-darwin-arm64-<ver>.tgz
+  tarballName = pkgs.lib.last (pkgs.lib.splitString "/" platform.npmPackage);
 in
 pkgs.stdenvNoCC.mkDerivation {
   pname = "opencode";
   version = oc.version;
 
   src = pkgs.fetchurl {
-    url = "https://registry.npmjs.org/${platform.npmPackage}/-/${platform.npmPackage}-${oc.version}.tgz";
+    url = "https://registry.npmjs.org/${platform.npmPackage}/-/${tarballName}-${oc.version}.tgz";
     hash = platform.hash;
   };
 
