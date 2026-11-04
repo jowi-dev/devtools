@@ -1,27 +1,27 @@
 {
   "claude-code": {
-    "version": "2.1.280",
+    "version": "2.1.318",
     "platforms": {
       "aarch64-darwin": {
         "artifact": "darwin-arm64",
-        "sha256": "387a5c5dcdbb815085edf0baf79591f9d8894efe922bceaf3d75b1b08055229d"
+        "sha256": "677a2ea7bf576cedd20e191d973914ed8a41796f53a63b1923381ddc4d5b5e7d"
       },
       "x86_64-linux": {
         "artifact": "linux-x64",
-        "sha256": "1e08503dbdf3c2cb0d706d32f3408277388d1c76ef108673e8fe42c1b322925b"
+        "sha256": "708c77b204db30086ff6f1ed34577bda03e1be74ced80557cbf7b54249ebf0bd"
       }
     }
   },
   "opencode": {
-    "version": "1.18.32",
+    "version": "1.19.5",
     "platforms": {
       "aarch64-darwin": {
         "npmPackage": "opencode-darwin-arm64",
-        "hash": "sha512-sDsHk/A6FNqeN5NuAiII6AAhi4pJIFcIY0S2yjG9gToIIVaqrQRaHQ6g0kpoVqTiMci8tvaND6tWD4eDT3ahFw=="
+        "hash": "sha512-0MbSbKkmwVHtgP31GJyyECe6QVy4T7W4Wp7s2TsmXHTPPyf01ne3dWSX97X9dkNK28Lc6kt+zMPQUP/9GgDLZg=="
       },
       "x86_64-linux": {
         "npmPackage": "opencode-linux-x64",
-        "hash": "sha512-CIatvoyi8V5a56xyw6ZUnsKxB9wqYIZqfNeqUNWhBBY4aENAm907LP0xXAwL6tR0cYbqNl2+Dvx8mOqXIxbDeQ=="
+        "hash": "sha512-i1qh7VooLGML9xX6ud93y0JA8j/1aPeDYRKjsmYXrJX1TjIWHgBBMkEbEJPZthpWbsJg//XfBgR6Kb7+NPaJiQ=="
       }
     }
   }
