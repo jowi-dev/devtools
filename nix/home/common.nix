@@ -32,7 +32,7 @@ let
   # with "hash mismatch in fixed-output derivation ...thatch-node-modules...",
   # copy the "got:" hash from the error over the matching entry below.
   thatchDepsHash = {
-    x86_64-linux = "sha256-NydNcsySh3ykqH+lpC5JclrHFQ0nEcLm+ojU2JWqfWs=";
+    x86_64-linux = "sha256-qK637FdPHnOdj/GEN/Ws8X8XWk+dLmiRTr5o6mzJ8qo=";
     aarch64-darwin = "sha256-0SP015i/O2QKvAJPA/GJPUf1HARYLtiQ1J9vGtwWfsI=";
   };
   thatchPackages = lib.warnIf (thatch == null)
